@@ -1,0 +1,26 @@
+<!-- filepath: c:\workspace\webhook\templates\zapi_webhook\index.html -->
+{% extends "base.html" %}
+{% block title %}Bem-vindo | Z-API Webhook Dashboard{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card feature-card border-0 shadow-sm mb-4">
+                <div class="card-body text-center">
+                    <h1 class="display-6 fw-bold mb-2">
+                        Z-API Webhook Dashboard
+                    </h1>
+                    <p class="lead mb-3">
+                        Monitore, filtre e visualize mensagens recebidas via webhook do WhatsApp Z-API.<br>
+                        Faça login para acessar o painel completo.
+                    </p>
+                    <a href="{% url 'login' %}" class="btn btn-lg btn-light text-primary fw-bold shadow">
+                        <i class="bi bi-box-arrow-in-right me-1"></i> Entrar
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

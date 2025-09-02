@@ -1,0 +1,258 @@
+<!-- filepath: c:\workspace\webhook\zapi_webhook\templates\dashboard.html -->
+{% extends "base.html" %}
+{% block title %}Dashboard | Z-API Webhook Dashboard{% endblock %}
+
+{% block extra_style %}
+.message-card {
+    transition: transform 0.2s;
+}
+.message-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+.status-badge {
+    font-size: 0.8em;
+}
+.filters-section {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+}
+.table-responsive {
+    border-radius: 10px;
+    overflow: hidden;
+}
+.search-box {
+    border-radius: 25px;
+}
+.row .col-md-2 .card {
+    height: 100%;
+    min-height: 120px;
+}
+.row .col-md-2 .card .card-body {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+}
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Estatísticas rápidas -->
+    <div class="row mb-4">
+        <div class="col-md-2">
+            <div class="card stats-card border-0 shadow-sm mb-3">
+                <div class="card-body text-center">
+                    <i class="bi bi-envelope-fill fs-2"></i>
+                    <h6 class="mt-2">Mensagens</h6>
+                    <span class="display-6 fw-bold">{{ stats.total_messages|default:"0" }}</span>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card stats-card border-0 shadow-sm mb-3">
+                <div class="card-body text-center">
+                    <i class="bi bi-person-lines-fill fs-2"></i>
+                    <h6 class="mt-2">Contatos únicos</h6>
+                    <span class="display-6 fw-bold">{{ stats.unique_contacts|default:"0" }}</span>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card stats-card border-0 shadow-sm mb-3">
+                <div class="card-body text-center">
+                    <i class="bi bi-people-fill fs-2"></i>
+                    <h6 class="mt-2">Grupos</h6>
+                    <span class="display-6 fw-bold">{{ stats.groups|default:"0" }}</span>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card stats-card border-0 shadow-sm mb-3">
+                <div class="card-body text-center">
+                    <i class="bi bi-check-circle-fill fs-2"></i>
+                    <h6 class="mt-2">Reencaminhadas</h6>
+                    <span class="display-6 fw-bold">{{ stats.forwarded|default:"0" }}</span>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card stats-card border-0 shadow-sm mb-3">
+                <div class="card-body text-center">
+                    <i class="bi bi-x-circle-fill fs-2"></i>
+                    <h6 class="mt-2">Falhas</h6>
+                    <span class="display-6 fw-bold">{{ stats.failed|default:"0" }}</span>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card stats-card border-0 shadow-sm mb-3">
+                <div class="card-body text-center">
+                    <i class="bi bi-clock-history fs-2"></i>
+                    <h6 class="mt-2">Última mensagem</h6>
+                    <span class="fw-bold">{{ stats.last_message|default:"-" }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filtros -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card filters-section border-0 shadow-sm">
+                <div class="card-body">
+                    <form method="get" class="row g-3 align-items-end">
+                        <div class="col-md-2">
+                            <label class="form-label">Telefone</label>
+                            <input type="text" name="phone" class="form-control search-box" value="{{ phone }}">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Status</label>
+                            <select name="status" class="form-select search-box">
+                                <option value="">Todos</option>
+                                <option value="forwarded" {% if status == "forwarded" %}selected{% endif %}>Reencaminhada</option>
+                                <option value="failed" {% if status == "failed" %}selected{% endif %}>Falha</option>
+                                <option value="pending" {% if status == "pending" %}selected{% endif %}>Pendente</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Data inicial</label>
+                            <input type="date" name="start_date" class="form-control search-box" value="{{ start_date }}">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Data final</label>
+                            <input type="date" name="end_date" class="form-control search-box" value="{{ end_date }}">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Tipo</label>
+                            <select name="is_group" class="form-select search-box">
+                                <option value="">Todos</option>
+                                <option value="true" {% if is_group == "true" %}selected{% endif %}>Grupo</option>
+                                <option value="false" {% if is_group == "false" %}selected{% endif %}>Individual</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2 d-grid">
+                            <button type="submit" class="btn btn-light text-primary fw-bold">
+                                <i class="bi bi-funnel-fill me-1"></i> Filtrar
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabela de mensagens -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title mb-3">
+                        <i class="bi bi-envelope-open me-2"></i>
+                        Mensagens Recebidas
+                    </h5>
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Data/Hora</th>
+                                    <th>Telefone</th>
+                                    <th>Mensagem</th>
+                                    <th>Status</th>
+                                    <th>Tipo</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for msg in messages %}
+                                <tr class="message-card">
+                                    <td>{{ msg.created_at|date:"d/m/Y H:i" }}</td>
+                                    <td>{{ msg.phone }}</td>
+                                    <td>{{ msg.message|truncatechars:50 }}</td>
+                                    <td>
+                                        {% if msg.external_system_status == 'success' %}
+                                            <span style="color: green; font-weight: bold;">
+                                                &#x2705; Sucesso
+                                            </span>
+                                            {% if msg.forwarded_at %}
+                                                <br><small class="text-muted">{{ msg.forwarded_at|date:"H:i:s" }}</small>
+                                            {% endif %}
+                                        {% elif msg.external_system_status == 'failed' %}
+                                            <span style="color: red; font-weight: bold;">
+                                                &#10060; Falha
+                                            </span>
+                                            {% if msg.forwarded_at %}
+                                                <br><small class="text-muted">{{ msg.forwarded_at|date:"H:i:s" }}</small>
+                                            {% endif %}
+                                        {% elif msg.external_system_status == 'pending' %}
+                                            <span style="color: orange; font-weight: bold;">
+                                                &#9203; Pendente
+                                            </span>
+                                        {% else %}
+                                            <span style="color: gray; font-weight: bold;">
+                                                <i class="bi bi-question-circle"></i> N/A
+                                            </span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if msg.is_group %}
+                                            <span class="badge bg-info status-badge">Grupo</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary status-badge">Individual</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="5" class="text-center text-muted">Nenhuma mensagem encontrada.</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    <!-- Paginação -->
+                    {% if is_paginated %}
+                    <nav class="mt-3">
+                        <ul class="pagination justify-content-center">
+                            {% if page_obj.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link" href="?{% if request.GET %}{{ request.GET.urlencode }}&{% endif %}page={{ page_obj.previous_page_number }}" aria-label="Anterior">
+                                    <span aria-hidden="true">&laquo;</span>
+                                </a>
+                            </li>
+                            {% else %}
+                            <li class="page-item disabled">
+                                <span class="page-link">&laquo;</span>
+                            </li>
+                            {% endif %}
+                            {% for num in page_obj.paginator.page_range %}
+                                {% if page_obj.number == num %}
+                                    <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                                {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                                    <li class="page-item"><a class="page-link" href="?{% if request.GET %}{{ request.GET.urlencode }}&{% endif %}page={{ num }}">{{ num }}</a></li>
+                                {% endif %}
+                            {% endfor %}
+                            {% if page_obj.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="?{% if request.GET %}{{ request.GET.urlencode }}&{% endif %}page={{ page_obj.next_page_number }}" aria-label="Próxima">
+                                    <span aria-hidden="true">&raquo;</span>
+                                </a>
+                            </li>
+                            {% else %}
+                            <li class="page-item disabled">
+                                <span class="page-link">&raquo;</span>
+                            </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Adicione aqui scripts JS específicos do dashboard, se necessário -->
+{% endblock %}
