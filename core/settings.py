@@ -179,6 +179,9 @@ if not ZAPI_WEBHOOK_URL_TOKEN:
 EXTERNAL_SYSTEM_URL = os.environ.get('EXTERNAL_SYSTEM_URL', '')
 EXTERNAL_SYSTEM_TIMEOUT = int(os.environ.get('EXTERNAL_SYSTEM_TIMEOUT', '10'))
 
+# Message retention configuration (days)
+MESSAGE_RETENTION_DAYS = int(os.environ.get('MESSAGE_RETENTION_DAYS', '3'))
+
 LOGIN_REDIRECT_URL = '/dashboard/'
 LOGOUT_REDIRECT_URL = '/'
 

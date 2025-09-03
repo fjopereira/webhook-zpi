@@ -14,6 +14,7 @@ Ponte segura entre Z-API e sistemas internos com dashboard de monitoramento.
 - **Dashboard de monitoramento** em tempo real
 - **Logs detalhados** de todas as mensagens
 - **Filtros avançados** e estatísticas
+- **Limpeza automática** de registros antigos
 - **PostgreSQL** para produção
 - **Interface responsiva** para monitoramento
 
@@ -100,6 +101,9 @@ ZAPI_WEBHOOK_URL_TOKEN=token-unico-muito-seguro
 # Sistema interno
 EXTERNAL_SYSTEM_URL=https://seu-sistema-interno.com/api/webhook
 EXTERNAL_SYSTEM_TIMEOUT=10
+
+# Limpeza automática (dias)
+MESSAGE_RETENTION_DAYS=3
 ```
 
 ### 🚨 **Segurança Implementada:**
@@ -117,6 +121,7 @@ EXTERNAL_SYSTEM_TIMEOUT=10
 - **Endpoint**: `POST https://seu-dominio.com/webhooks/zapi/on-message-received/<token>/`
 - **Função**: Recebe mensagens do Z-API e encaminha para sistema interno
 - **Autenticação**: Token na URL (configurado em `ZAPI_WEBHOOK_URL_TOKEN`)
+- **Limpeza**: Remove automaticamente registros antigos a cada recebimento
 
 ### Dashboard de Monitoramento
 - **URL**: `https://seu-dominio.com/dashboard/`
@@ -126,6 +131,11 @@ EXTERNAL_SYSTEM_TIMEOUT=10
 ### Health Check
 - **URL**: `https://seu-dominio.com/healthz/`
 - **Função**: Verificar status da aplicação
+
+### 🧹 Limpeza Automática
+- **Configuração**: `MESSAGE_RETENTION_DAYS` (padrão: 3 dias)
+- **Execução**: Automática no webhook Z-API
+- **Logs**: Registra quantidade de mensagens removidas
 
 ## 📊 Estrutura do Projeto
 

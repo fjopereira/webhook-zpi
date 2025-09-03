@@ -9,7 +9,7 @@ from django.views.decorators.http import require_http_methods
 from django.shortcuts import render
 from django.utils import timezone
 from django.contrib.auth.decorators import login_required
-from datetime import date
+from datetime import date, timedelta
 
 from .models import MessageLog
 from django.core.paginator import Paginator
@@ -17,6 +17,32 @@ import requests
 
 
 logger = logging.getLogger(__name__)
+
+
+def _cleanup_old_messages():
+    """
+    Remove mensagens antigas baseado no parâmetro MESSAGE_RETENTION_DAYS.
+    Esta função é chamada automaticamente no dashboard para manter a base limpa.
+    """
+    try:
+        retention_days = getattr(settings, 'MESSAGE_RETENTION_DAYS', 5)
+        cutoff_date = timezone.now() - timedelta(days=retention_days)
+        
+        # Contar quantos registros serão deletados
+        old_messages_count = MessageLog.objects.filter(created_at__lt=cutoff_date).count()
+        
+        if old_messages_count > 0:
+            # Deletar mensagens antigas
+            deleted_count, _ = MessageLog.objects.filter(created_at__lt=cutoff_date).delete()
+            logger.info(f"Limpeza automática: {deleted_count} mensagens antigas removidas (mais de {retention_days} dias)")
+            return deleted_count
+        else:
+            logger.debug(f"Limpeza automática: nenhuma mensagem antiga encontrada (retenção: {retention_days} dias)")
+            return 0
+            
+    except Exception as e:
+        logger.error(f"Erro durante limpeza automática de mensagens: {e}")
+        return 0
 
 
 def _url_token_is_valid(url_token: str) -> bool:
@@ -28,6 +54,10 @@ def _url_token_is_valid(url_token: str) -> bool:
 @require_http_methods(["POST"])
 # @ratelimit(key='ip', rate='100/m', method='POST', block=True)  # Temporariamente desabilitado
 def zapi_on_message_received(request: HttpRequest, url_token: str) -> HttpResponse:
+    # Executar limpeza automática de mensagens antigas
+    deleted_count = _cleanup_old_messages()
+    
+    # Verificar se o token é válido
     if not _url_token_is_valid(url_token):
         logger.warning('Invalid URL token for Z-API webhook')
         return JsonResponse({'detail': 'Invalid token'}, status=401)
