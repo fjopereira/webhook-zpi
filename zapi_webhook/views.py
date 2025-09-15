@@ -1,15 +1,16 @@
 import json
 import logging
+import re
 
 from django.conf import settings
 from django.http import HttpRequest, JsonResponse, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
-# from django_ratelimit.decorators import ratelimit  # Temporariamente desabilitado
 from django.shortcuts import render
 from django.utils import timezone
 from django.contrib.auth.decorators import login_required
 from datetime import date, timedelta
+from django.contrib import messages
 
 from .models import MessageLog
 from django.core.paginator import Paginator
@@ -216,4 +217,114 @@ def dashboard(request):
 
 def index(request):
     return render(request, 'index.html')
+
+
+def _sanitize_carga_number(carga_number: str) -> str:
+    """
+    Sanitiza o número da carga para prevenir SQL injection e outros ataques.
+    Remove todos os caracteres que não sejam dígitos.
+    """
+    if not carga_number:
+        return ""
+    
+    # Remove todos os caracteres que não sejam dígitos
+    sanitized = re.sub(r'[^\d]', '', str(carga_number))
+    
+    # Limita o tamanho para evitar ataques de buffer overflow
+    return sanitized[:20] if sanitized else ""
+
+
+def _extract_content_from_response(response_text: str, content_type: str = '') -> str:
+    """
+    Extrai a mensagem da chave 'msg' do JSON retornado pelo sistema externo.
+    """
+    try:
+        json_data = json.loads(response_text)
+        return str(json_data.get('msg', 'Resposta sem mensagem'))
+    except json.JSONDecodeError as e:
+        logger.error(f"Erro ao parsear JSON da resposta: {e}")
+        return "Erro ao processar resposta do sistema externo"
+
+
+@require_http_methods(["GET", "POST"])
+def consulta_status_carga(request):
+    """
+    View para consulta de status de carga no sistema externo.
+    Não requer autenticação conforme solicitado.
+    """
+    context = {
+        'carga_number': '',
+        'status_response': '',
+        'error_message': '',
+        'success': False
+    }
+    
+    if request.method == 'POST':
+        carga_number = request.POST.get('carga_number', '').strip()
+        
+        if not carga_number:
+            context['error_message'] = 'Por favor, informe o número da carga.'
+            return render(request, 'consulta_status_carga.html', context)
+        
+        # Sanitizar o número da carga
+        sanitized_carga = _sanitize_carga_number(carga_number)
+        
+        if not sanitized_carga:
+            context['error_message'] = 'Número da carga inválido. Use apenas números.'
+            return render(request, 'consulta_status_carga.html', context)
+        
+        # Verificar se a URL está configurada
+        carga_status_url = getattr(settings, 'CARGA_STATUS_URL', '')
+        if not carga_status_url:
+            context['error_message'] = 'Serviço de consulta não configurado. Entre em contato com o administrador.'
+            logger.error('CARGA_STATUS_URL não configurada no settings')
+            return render(request, 'consulta_status_carga.html', context)
+        
+        try:
+            # Construir a URL completa
+            full_url = f"{carga_status_url.rstrip('/')}/{sanitized_carga}"
+            timeout = getattr(settings, 'CARGA_STATUS_TIMEOUT', 10)
+            
+            logger.info(f"Consultando status da carga {sanitized_carga} na URL: {full_url}")
+            
+            # Fazer a requisição para o sistema externo
+            response = requests.get(
+                full_url,
+                timeout=timeout,
+                headers={
+                    'User-Agent': 'Tambasa-Webhook/1.0',
+                    'Accept': 'text/plain, text/html, */*'
+                }
+            )
+            
+            if response.status_code == 200:
+                # Extrai o conteúdo relevante da resposta
+                content_type = response.headers.get('content-type', '')
+                clean_response = _extract_content_from_response(response.text, content_type)
+                
+                context['status_response'] = clean_response
+                context['success'] = True
+                context['carga_number'] = sanitized_carga
+                logger.info(f"Consulta de carga {sanitized_carga} realizada com sucesso")
+            else:
+                context['error_message'] = f'Erro na consulta: HTTP {response.status_code}'
+                logger.warning(f"Erro na consulta da carga {sanitized_carga}: HTTP {response.status_code}")
+                
+        except requests.exceptions.Timeout:
+            context['error_message'] = 'Timeout na consulta. Tente novamente em alguns instantes.'
+            logger.error(f"Timeout na consulta da carga {sanitized_carga}")
+            
+        except requests.exceptions.ConnectionError:
+            context['error_message'] = 'Erro de conexão com o serviço. Tente novamente mais tarde.'
+            logger.error(f"Erro de conexão na consulta da carga {sanitized_carga}")
+            
+        except requests.exceptions.RequestException as e:
+            context['error_message'] = 'Erro interno na consulta. Tente novamente.'
+            logger.error(f"Erro na requisição para consulta da carga {sanitized_carga}: {e}")
+            
+        except Exception as e:
+            context['error_message'] = 'Erro interno do sistema. Entre em contato com o suporte.'
+            logger.error(f"Erro inesperado na consulta da carga {sanitized_carga}: {e}")
+    
+    return render(request, 'consulta_status_carga.html', context)
 

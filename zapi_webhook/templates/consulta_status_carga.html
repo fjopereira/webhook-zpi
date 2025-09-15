@@ -1,0 +1,222 @@
+{% extends "base.html" %}
+{% block title %}Consulta Status de Carga | Tambasa{% endblock %}
+
+{% block extra_style %}
+<style>
+.carga-form-card {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+}
+.result-card {
+    transition: transform 0.2s;
+}
+.result-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+.carga-input {
+    border-radius: 25px;
+    border: 2px solid #e9ecef;
+    padding: 12px 20px;
+    font-size: 1.1em;
+}
+.carga-input:focus {
+    border-color: #667eea;
+    box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+}
+.btn-consultar {
+    border-radius: 25px;
+    padding: 12px 30px;
+    font-weight: bold;
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    border: none;
+    color: white;
+}
+.btn-consultar:hover {
+    background: linear-gradient(135deg, #f5576c 0%, #f093fb 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+.status-response {
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: 15px;
+    font-family: 'Courier New', monospace;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    max-height: 400px;
+    overflow-y: auto;
+}
+.alert-custom {
+    border-radius: 15px;
+    border: none;
+    padding: 15px 20px;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Cabeçalho -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card carga-form-card border-0 shadow-sm">
+                <div class="card-body text-center">
+                    <h1 class="display-6 fw-bold mb-2">
+                        <i class="bi bi-search me-2"></i>
+                        Consulta Status de Carga
+                    </h1>
+                    <p class="lead mb-0">
+                        Informe o número da carga para consultar seu status atual
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Formulário de Consulta -->
+    <div class="row mb-4">
+        <div class="col-md-8 offset-md-2">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body p-4">
+                    <form method="post" class="text-center">
+                        {% csrf_token %}
+                        <div class="mb-4">
+                            <label for="carga_number" class="form-label fs-5 fw-bold text-primary">
+                                <i class="bi bi-box-seam me-2"></i>
+                                Número da Carga
+                            </label>
+                            <input 
+                                type="text" 
+                                id="carga_number"
+                                name="carga_number" 
+                                class="form-control carga-input text-center"
+                                placeholder="Digite o número da carga (apenas números)"
+                                value="{{ carga_number }}"
+                                pattern="[0-9]*"
+                                inputmode="numeric"
+                                maxlength="20"
+                                required
+                            >
+                            <small class="form-text text-muted mt-2">
+                                <i class="bi bi-info-circle me-1"></i>
+                                Use apenas números, sem espaços ou caracteres especiais
+                            </small>
+                        </div>
+                        <button type="submit" class="btn btn-consultar btn-lg">
+                            <i class="bi bi-search me-2"></i>
+                            Consultar Status
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mensagens de Erro -->
+    {% if error_message %}
+    <div class="row mb-4">
+        <div class="col-md-8 offset-md-2">
+            <div class="alert alert-danger alert-custom" role="alert">
+                <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                <strong>Erro:</strong> {{ error_message }}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Resultado da Consulta -->
+    {% if success and status_response %}
+    <div class="row mb-4">
+        <div class="col-md-10 offset-md-1">
+            <div class="card result-card border-0 shadow-sm">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">
+                        <i class="bi bi-check-circle-fill me-2"></i>
+                        Status da Carga: {{ carga_number }}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="status-response">{{ status_response }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Informações Adicionais -->
+    <div class="row mb-4">
+        <div class="col-md-8 offset-md-2">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title text-primary">
+                        <i class="bi bi-info-circle me-2"></i>
+                        Informações Importantes
+                    </h5>
+                    <ul class="list-unstyled mb-0">
+                        <li class="mb-2">
+                            <i class="bi bi-arrow-right text-primary me-2"></i>
+                            Digite apenas o número da carga, sem espaços ou caracteres especiais
+                        </li>
+                        <li class="mb-2">
+                            <i class="bi bi-arrow-right text-primary me-2"></i>
+                            O sistema consulta automaticamente o status mais atualizado
+                        </li>
+                        <li class="mb-2">
+                            <i class="bi bi-arrow-right text-primary me-2"></i>
+                            Em caso de erro, verifique se o número da carga está correto
+                        </li>
+                        <li>
+                            <i class="bi bi-arrow-right text-primary me-2"></i>
+                            Para dúvidas, entre em contato com o suporte
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Botão para Nova Consulta -->
+    {% if success %}
+    <div class="row mb-4">
+        <div class="col-12 text-center">
+            <a href="{% url 'consulta_status_carga' %}" class="btn btn-outline-primary btn-lg">
+                <i class="bi bi-arrow-clockwise me-2"></i>
+                Nova Consulta
+            </a>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Permitir apenas números no campo de entrada
+    const cargaInput = document.getElementById('carga_number');
+    if (cargaInput) {
+        cargaInput.addEventListener('input', function(e) {
+            // Remove todos os caracteres que não sejam dígitos
+            this.value = this.value.replace(/[^\d]/g, '');
+        });
+        
+        // Focar no campo ao carregar a página
+        cargaInput.focus();
+    }
+    
+    // Adicionar loading ao formulário
+    const form = document.querySelector('form');
+    if (form) {
+        form.addEventListener('submit', function() {
+            const submitBtn = form.querySelector('button[type="submit"]');
+            if (submitBtn) {
+                submitBtn.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Consultando...';
+                submitBtn.disabled = true;
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

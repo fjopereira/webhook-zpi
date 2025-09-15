@@ -1,4 +1,3 @@
-<!-- filepath: c:\workspace\webhook\templates\zapi_webhook\index.html -->
 {% extends "base.html" %}
 {% block title %}Bem-vindo | Tambasa{% endblock %}
 
@@ -13,12 +12,21 @@
                     </h1>
                     <p class="lead mb-3">
                         Monitore, filtre e visualize mensagens recebidas via webhook.<br>
-                        Consuta situação do pacote.<br>
+                        Consulte situação do pacote.<br>
                         Faça login para acessar o painel completo.
                     </p>
-                    <a href="{% url 'login' %}" class="btn btn-lg btn-light text-primary fw-bold shadow">
-                        <i class="bi bi-box-arrow-in-right me-1"></i> Entrar
-                    </a>
+                    
+                    <div class="d-grid gap-3 d-md-flex justify-content-md-center">
+                        <a href="{% url 'consulta_status_carga' %}" class="btn btn-lg btn-light text-primary fw-bold shadow">
+                            <i class="bi bi-search me-2"></i> Consultar Status de Carga
+                        </a>
+                        <!-- 
+                        <a href="{% url 'login' %}" class="btn btn-lg btn-outline-light fw-bold shadow">
+                            <i class="bi bi-box-arrow-in-right me-1"></i> Entrar
+                        </a>
+                        -->
+                    </div>
+                    
                 </div>
             </div>
         </div>

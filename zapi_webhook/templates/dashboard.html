@@ -1,8 +1,8 @@
-<!-- filepath: c:\workspace\webhook\zapi_webhook\templates\dashboard.html -->
 {% extends "base.html" %}
 {% block title %}Dashboard | Tambasa{% endblock %}
 
 {% block extra_style %}
+<style>
 .message-card {
     transition: transform 0.2s;
 }
@@ -35,6 +35,7 @@
     align-items: center;
     height: 100%;
 }
+</style>
 {% endblock %}
 
 {% block content %}
@@ -168,7 +169,7 @@
                                 <tr class="message-card">
                                     <td>{{ msg.created_at|date:"d/m/Y H:i" }}</td>
                                     <td>{{ msg.phone }}</td>
-                                    <td>{{ msg.message|truncatechars:50 }}</td>
+                                    <td>{{ msg.message|truncatechars:50|escape }}</td>
                                     <td>
                                         {% if msg.external_system_status == 'success' %}
                                             <span style="color: green; font-weight: bold;">

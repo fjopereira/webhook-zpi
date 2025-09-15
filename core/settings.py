@@ -182,6 +182,10 @@ EXTERNAL_SYSTEM_TIMEOUT = int(os.environ.get('EXTERNAL_SYSTEM_TIMEOUT', '10'))
 # Message retention configuration (days)
 MESSAGE_RETENTION_DAYS = int(os.environ.get('MESSAGE_RETENTION_DAYS', '3'))
 
+# Consulta de status de carga - URL do sistema externo
+CARGA_STATUS_URL = os.environ.get('CARGA_STATUS_URL', '')
+CARGA_STATUS_TIMEOUT = int(os.environ.get('CARGA_STATUS_TIMEOUT', '10'))
+
 LOGIN_REDIRECT_URL = '/dashboard/'
 LOGOUT_REDIRECT_URL = '/'
 

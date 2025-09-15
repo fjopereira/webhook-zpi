@@ -12,6 +12,7 @@ Ponte segura entre Z-API e sistemas internos com dashboard de monitoramento.
 - **Webhook seguro** com autenticação por token
 - **Ponte automática** para sistema interno
 - **Dashboard de monitoramento** em tempo real
+- **Consulta de status de carga** pública (sem login)
 - **Logs detalhados** de todas as mensagens
 - **Filtros avançados** e estatísticas
 - **Limpeza automática** de registros antigos
@@ -22,7 +23,7 @@ Ponte segura entre Z-API e sistemas internos com dashboard de monitoramento.
 
 - **Backend**: Django 4.2.23
 - **Banco**: PostgreSQL (produção) / SQLite (desenvolvimento)
-- **Servidor**: Gunicorn + Gevent
+- **Servidor**: Gunicorn
 - **Container**: Docker com Python 3.11
 - **Segurança**: HTTPS, headers seguros, validação de token
 
@@ -104,6 +105,10 @@ EXTERNAL_SYSTEM_TIMEOUT=10
 
 # Limpeza automática (dias)
 MESSAGE_RETENTION_DAYS=3
+
+# Consulta de status de carga
+CARGA_STATUS_URL=https://seu-sistema.com/consultastatuscarga/
+CARGA_STATUS_TIMEOUT=10
 ```
 
 ### 🚨 **Segurança Implementada:**
@@ -127,6 +132,12 @@ MESSAGE_RETENTION_DAYS=3
 - **URL**: `https://seu-dominio.com/dashboard/`
 - **Login**: Usuário Django necessário
 - **Função**: Monitorar mensagens e status de encaminhamento
+
+### Consulta de Status de Carga
+- **URL**: `https://seu-dominio.com/consulta-status-carga/`
+- **Login**: Não necessário (acesso público)
+- **Função**: Consultar status de carga em sistema externo
+- **Segurança**: Sanitização de dados, validação de entrada, logs de auditoria
 
 ### Health Check
 - **URL**: `https://seu-dominio.com/healthz/`
@@ -232,9 +243,11 @@ git push heroku main
 - **HTTPS enforcement** em produção
 - **Headers de segurança** completos
 - **Validação de Content-Type**
-- **Sanitização de dados** JSON
+- **Sanitização de dados** JSON e entrada de usuário
 - **Logs de auditoria** detalhados
 - **Container não-root** no Docker
+- **Validação de entrada** na consulta de carga (apenas números)
+- **Timeout configurável** para requisições externas
 
 ### ⚠️ **Considerações para Internet**
 - Webhook **exposto publicamente** (necessário para Z-API)
