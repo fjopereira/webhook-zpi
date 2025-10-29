@@ -4,30 +4,40 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('zapi_webhook', '0001_initial'),
+        ("zapi_webhook", "0001_initial"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='messagelog',
-            name='external_system_response',
-            field=models.TextField(blank=True, help_text='Resposta do sistema externo', null=True),
+            model_name="messagelog",
+            name="external_system_response",
+            field=models.TextField(
+                blank=True, help_text="Resposta do sistema externo", null=True
+            ),
         ),
         migrations.AddField(
-            model_name='messagelog',
-            name='external_system_status',
-            field=models.CharField(blank=True, help_text='Status do reencaminhamento (success, failed, pending)', max_length=50, null=True),
+            model_name="messagelog",
+            name="external_system_status",
+            field=models.CharField(
+                blank=True,
+                help_text="Status do reencaminhamento (success, failed, pending)",
+                max_length=50,
+                null=True,
+            ),
         ),
         migrations.AddField(
-            model_name='messagelog',
-            name='external_system_status_code',
-            field=models.IntegerField(blank=True, help_text='Código de status HTTP da resposta', null=True),
+            model_name="messagelog",
+            name="external_system_status_code",
+            field=models.IntegerField(
+                blank=True, help_text="Código de status HTTP da resposta", null=True
+            ),
         ),
         migrations.AddField(
-            model_name='messagelog',
-            name='forwarded_at',
-            field=models.DateTimeField(blank=True, help_text='Data/hora do reencaminhamento', null=True),
+            model_name="messagelog",
+            name="forwarded_at",
+            field=models.DateTimeField(
+                blank=True, help_text="Data/hora do reencaminhamento", null=True
+            ),
         ),
     ]

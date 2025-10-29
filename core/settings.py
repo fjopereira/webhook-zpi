@@ -26,103 +26,106 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 # SECURITY WARNING: keep the secret key used in production secret!
 # Prefer environment variable in production; fallback for local dev only
-SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY')
+SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY")
 if not SECRET_KEY:
-    raise ValueError('DJANGO_SECRET_KEY environment variable is required')
+    raise ValueError("DJANGO_SECRET_KEY environment variable is required")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.environ.get('DJANGO_DEBUG', 'False').lower() == 'true'
+DEBUG = os.environ.get("DJANGO_DEBUG", "False").lower() == "true"
 
-ALLOWED_HOSTS = os.environ.get('DJANGO_ALLOWED_HOSTS', '').split(',') if os.environ.get('DJANGO_ALLOWED_HOSTS') else []
+ALLOWED_HOSTS = (
+    os.environ.get("DJANGO_ALLOWED_HOSTS", "").split(",")
+    if os.environ.get("DJANGO_ALLOWED_HOSTS")
+    else []
+)
 
 # Security settings for production
 if not DEBUG:
     # HTTPS enforcement
     SECURE_SSL_REDIRECT = True
-    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-    
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
     # Security headers
     SECURE_BROWSER_XSS_FILTER = True
     SECURE_CONTENT_TYPE_NOSNIFF = True
-    X_FRAME_OPTIONS = 'DENY'
+    X_FRAME_OPTIONS = "DENY"
     SECURE_HSTS_SECONDS = 31536000  # 1 year
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True
-    
+
     # Cookie security
     SESSION_COOKIE_SECURE = True
     SESSION_COOKIE_HTTPONLY = True
-    SESSION_COOKIE_SAMESITE = 'Strict'
+    SESSION_COOKIE_SAMESITE = "Strict"
     CSRF_COOKIE_SECURE = False
     CSRF_COOKIE_HTTPONLY = True
-    CSRF_COOKIE_SAMESITE = 'Strict'
-    
+    CSRF_COOKIE_SAMESITE = "Strict"
+
     # Additional security
-    SECURE_REFERRER_POLICY = 'strict-origin-when-cross-origin'
+    SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
 
 
 # Application definition
 
 INSTALLED_APPS = [
-    'django.contrib.admin',
-    'django.contrib.auth',
-    'django.contrib.contenttypes',
-    'django.contrib.sessions',
-    'django.contrib.messages',
-    'django.contrib.staticfiles',
-    'zapi_webhook',
-    'accounts',
+    "django.contrib.admin",
+    "django.contrib.auth",
+    "django.contrib.contenttypes",
+    "django.contrib.sessions",
+    "django.contrib.messages",
+    "django.contrib.staticfiles",
+    "zapi_webhook",
+    "accounts",
 ]
 
 MIDDLEWARE = [
-    'django.middleware.security.SecurityMiddleware',
-    'django.contrib.sessions.middleware.SessionMiddleware',
-    'django.middleware.common.CommonMiddleware',
-    'django.middleware.csrf.CsrfViewMiddleware',
-    'django.contrib.auth.middleware.AuthenticationMiddleware',
-    'django.contrib.messages.middleware.MessageMiddleware',
-    'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    "django.middleware.security.SecurityMiddleware",
+    "django.contrib.sessions.middleware.SessionMiddleware",
+    "django.middleware.common.CommonMiddleware",
+    "django.middleware.csrf.CsrfViewMiddleware",
+    "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "django.contrib.messages.middleware.MessageMiddleware",
+    "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
-ROOT_URLCONF = 'core.urls'
+ROOT_URLCONF = "core.urls"
 
 TEMPLATES = [
     {
-        'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [BASE_DIR / 'templates'],
-        'APP_DIRS': True,
-        'OPTIONS': {
-            'context_processors': [
-                'django.template.context_processors.debug',
-                'django.template.context_processors.request',
-                'django.contrib.auth.context_processors.auth',
-                'django.contrib.messages.context_processors.messages',
+        "BACKEND": "django.template.backends.django.DjangoTemplates",
+        "DIRS": [BASE_DIR / "templates"],
+        "APP_DIRS": True,
+        "OPTIONS": {
+            "context_processors": [
+                "django.template.context_processors.debug",
+                "django.template.context_processors.request",
+                "django.contrib.auth.context_processors.auth",
+                "django.contrib.messages.context_processors.messages",
             ],
         },
     },
 ]
 
-WSGI_APPLICATION = 'core.wsgi.application'
+WSGI_APPLICATION = "core.wsgi.application"
 
 
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
 # Configuração para PostgreSQL com fallback para SQLite em desenvolvimento
-DATABASE_URL = os.environ.get('DATABASE_URL')
+DATABASE_URL = os.environ.get("DATABASE_URL")
 
 if DATABASE_URL:
     # Usar PostgreSQL se DATABASE_URL estiver definida
     import dj_database_url
-    DATABASES = {
-        'default': dj_database_url.parse(DATABASE_URL)
-    }
+
+    DATABASES = {"default": dj_database_url.parse(DATABASE_URL)}
 else:
     # Fallback para SQLite em desenvolvimento local
     DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': BASE_DIR / 'db.sqlite3',
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": BASE_DIR / "db.sqlite3",
         }
     }
 
@@ -132,16 +135,16 @@ else:
 
 AUTH_PASSWORD_VALIDATORS = [
     {
-        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
+        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+        "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
+        "NAME": "django.contrib.auth.password_validation.CommonPasswordValidator",
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
+        "NAME": "django.contrib.auth.password_validation.NumericPasswordValidator",
     },
 ]
 
@@ -149,9 +152,9 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/4.2/topics/i18n/
 
-LANGUAGE_CODE = 'pt-br'
+LANGUAGE_CODE = "pt-br"
 
-TIME_ZONE = 'America/Sao_Paulo'
+TIME_ZONE = "America/Sao_Paulo"
 
 USE_I18N = True
 
@@ -161,53 +164,53 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/4.2/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = "static/"
 # STATICFILES_DIRS removido pois não estamos usando arquivos estáticos customizados
-STATIC_ROOT = BASE_DIR / 'staticfiles'
+STATIC_ROOT = BASE_DIR / "staticfiles"
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
 
-DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # Z-API Webhook URL token (the URL will contain this token as a path segment)
-ZAPI_WEBHOOK_URL_TOKEN = os.environ.get('ZAPI_WEBHOOK_URL_TOKEN')
+ZAPI_WEBHOOK_URL_TOKEN = os.environ.get("ZAPI_WEBHOOK_URL_TOKEN")
 if not ZAPI_WEBHOOK_URL_TOKEN:
-    raise ValueError('ZAPI_WEBHOOK_URL_TOKEN environment variable is required')
+    raise ValueError("ZAPI_WEBHOOK_URL_TOKEN environment variable is required")
 
 # External system configuration
-EXTERNAL_SYSTEM_URL = os.environ.get('EXTERNAL_SYSTEM_URL', '')
-EXTERNAL_SYSTEM_TIMEOUT = int(os.environ.get('EXTERNAL_SYSTEM_TIMEOUT', '10'))
+EXTERNAL_SYSTEM_URL = os.environ.get("EXTERNAL_SYSTEM_URL", "")
+EXTERNAL_SYSTEM_TIMEOUT = int(os.environ.get("EXTERNAL_SYSTEM_TIMEOUT", "10"))
 
 # Message retention configuration (days)
-MESSAGE_RETENTION_DAYS = int(os.environ.get('MESSAGE_RETENTION_DAYS', '3'))
+MESSAGE_RETENTION_DAYS = int(os.environ.get("MESSAGE_RETENTION_DAYS", "3"))
 
 # Consulta de status de carga - URL do sistema externo
-CARGA_STATUS_URL = os.environ.get('CARGA_STATUS_URL', '')
-CARGA_STATUS_TIMEOUT = int(os.environ.get('CARGA_STATUS_TIMEOUT', '10'))
+CARGA_STATUS_URL = os.environ.get("CARGA_STATUS_URL", "")
+CARGA_STATUS_TIMEOUT = int(os.environ.get("CARGA_STATUS_TIMEOUT", "10"))
 
-LOGIN_REDIRECT_URL = '/dashboard/'
-LOGOUT_REDIRECT_URL = '/'
+LOGIN_REDIRECT_URL = "/dashboard/"
+LOGOUT_REDIRECT_URL = "/"
 
 # Basic logging configuration suitable for Cloud Run stdout/stderr
 LOGGING = {
-    'version': 1,
-    'disable_existing_loggers': False,
-    'handlers': {
-        'console': {
-            'class': 'logging.StreamHandler',
+    "version": 1,
+    "disable_existing_loggers": False,
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
         },
     },
-    'root': {
-        'handlers': ['console'],
-        'level': os.environ.get('DJANGO_LOG_LEVEL', 'INFO'),
+    "root": {
+        "handlers": ["console"],
+        "level": os.environ.get("DJANGO_LOG_LEVEL", "INFO"),
     },
 }
 
 # Paths to template directories
 TEMPLATES_DIRS = [
-    BASE_DIR / 'templates',
-    BASE_DIR / 'accounts' / 'templates' / 'registration',
+    BASE_DIR / "templates",
+    BASE_DIR / "accounts" / "templates" / "registration",
 ]
 
 CSRF_TRUSTED_ORIGINS = [
