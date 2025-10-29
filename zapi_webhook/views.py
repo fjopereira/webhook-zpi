@@ -158,6 +158,7 @@ def dashboard(request):
     broadcast = request.GET.get('broadcast', '')
     start_date = request.GET.get('start_date') or date.today().strftime('%Y-%m-%d')
     end_date = request.GET.get('end_date') or date.today().strftime('%Y-%m-%d')
+    message_id = request.GET.get('message_id', '')
 
     messages = MessageLog.objects.all()
 
@@ -165,7 +166,8 @@ def dashboard(request):
     if not (phone or status or start_date or end_date or is_group or broadcast):
         today = timezone.now().date()
         messages = messages.filter(created_at__date=today)
-
+    if message_id:
+        messages = messages.filter(message_id=message_id)
     if phone:
         messages = messages.filter(phone__icontains=phone)
     if status:
@@ -202,6 +204,7 @@ def dashboard(request):
             'failed': failed,
             'last_message': last_message_time,
         },
+        'message_id': message_id,
         'messages': page_obj,
         'phone': phone,
         'status': status,

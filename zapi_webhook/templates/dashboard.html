@@ -158,6 +158,7 @@
                             <thead class="table-light">
                                 <tr>
                                     <th>Data/Hora</th>
+                                    <th>Mensagem Id</th>
                                     <th>Telefone</th>
                                     <th>Mensagem</th>
                                     <th>Status</th>
@@ -167,7 +168,8 @@
                             <tbody>
                                 {% for msg in messages %}
                                 <tr class="message-card">
-                                    <td>{{ msg.created_at|date:"d/m/Y H:i" }}</td>
+                                    <td>{{ msg.created_at|date:"d/m/Y H:i:s" }}</td>
+                                    <td>{{ msg.message_id }}</td>
                                     <td>{{ msg.phone }}</td>
                                     <td>{{ msg.message|truncatechars:50|escape }}</td>
                                     <td>
@@ -257,3 +259,4 @@
 {% block extra_js %}
 <!-- Adicione aqui scripts JS específicos do dashboard, se necessário -->
 {% endblock %}
+
