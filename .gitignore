@@ -36,6 +36,10 @@ staticfiles/
 .vscode/
 *.code-workspace
 
+# Arquivos de IA
+@*
+*.md
+
 # Sistema
 .DS_Store
 Thumbs.db

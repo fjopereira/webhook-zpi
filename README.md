@@ -255,6 +255,61 @@ git push heroku main
 - **Firewall** recomendado no servidor
 - **Monitoramento** de tentativas de acesso
 
+## API de Consulta de Carga
+
+### Autenticação
+
+1. Acesse o Django Admin (`/admin/`)
+2. Vá em "Tokens de API"
+3. Crie um novo token com um nome identificador
+4. Copie o token gerado (será exibido apenas uma vez)
+
+### Uso
+
+```bash
+curl -X GET "https://seu-dominio.com/api/consulta-carga/12345/" \
+  -H "Authorization: Bearer seu-token-aqui"
+```
+
+### Resposta
+
+**Carga encontrada:**
+```json
+{
+  "status": "1",
+  "message": "Carga em trânsito - Previsão: 2 dias"
+}
+```
+
+**Carga não encontrada:**
+```json
+{
+  "status": "0",
+  "message": ""
+}
+```
+
+### Rate Limiting
+
+- Limite: 60 requisições por minuto por token
+- Resposta ao exceder: HTTP 429
+
+### CORS
+
+Configure domínios permitidos no `.env`:
+```
+CORS_ALLOWED_ORIGINS=https://sistema1.com,https://sistema2.com
+```
+
+### Monitoramento
+
+Acesse o Dashboard (`/dashboard/`) para visualizar:
+- Total de requisições
+- Taxa de sucesso/falha
+- IPs únicos
+- Tempo médio de resposta
+- Logs detalhados por carga, token, período
+
 ## 📝 Logs
 
 - Todas as mensagens são logadas no console

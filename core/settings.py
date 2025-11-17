@@ -74,12 +74,14 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "corsheaders",
     "zapi_webhook",
     "accounts",
 ]
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "corsheaders.middleware.CorsMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -215,4 +217,20 @@ TEMPLATES_DIRS = [
 
 CSRF_TRUSTED_ORIGINS = [
     "https://zapi.tambasa.com/",
+]
+
+# CORS Configuration
+CORS_ALLOWED_ORIGINS = (
+    os.environ.get("CORS_ALLOWED_ORIGINS", "").split(",")
+    if os.environ.get("CORS_ALLOWED_ORIGINS")
+    else []
+)
+CORS_ALLOW_CREDENTIALS = False
+CORS_ALLOW_HEADERS = [
+    "accept",
+    "accept-encoding",
+    "authorization",
+    "content-type",
+    "origin",
+    "user-agent",
 ]

@@ -3,19 +3,25 @@
 
 {% block extra_style %}
 <style>
-.message-card {
+.stats-card {
     transition: transform 0.2s;
+    height: 100%;
+    min-height: 120px;
 }
-.message-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+.stats-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 12px rgba(0,0,0,0.1);
 }
-.status-badge {
-    font-size: 0.8em;
+.stats-card .card-body {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
 }
 .filters-section {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
+    background-color: #f8f9fa;
+    color: #343a40;
 }
 .table-responsive {
     border-radius: 10px;
@@ -24,239 +30,348 @@
 .search-box {
     border-radius: 25px;
 }
-.row .col-md-2 .card {
-    height: 100%;
-    min-height: 120px;
+.nav-tabs .nav-link {
+    color: #495057;
 }
-.row .col-md-2 .card .card-body {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    height: 100%;
+.nav-tabs .nav-link.active {
+    color: #007bff;
+    border-color: #dee2e6 #dee2e6 #fff;
+    font-weight: bold;
+}
+.btn-light {
+    background-color: #fff;
+    border-color: #dee2e6;
 }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="container-fluid mt-4">
-    <!-- Estatísticas rápidas -->
-    <div class="row mb-4">
-        <div class="col-md-2">
-            <div class="card stats-card border-0 shadow-sm mb-3">
-                <div class="card-body text-center">
-                    <i class="bi bi-envelope-fill fs-2"></i>
-                    <h6 class="mt-2">Mensagens</h6>
-                    <span class="display-6 fw-bold">{{ stats.total_messages|default:"0" }}</span>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-2">
-            <div class="card stats-card border-0 shadow-sm mb-3">
-                <div class="card-body text-center">
-                    <i class="bi bi-person-lines-fill fs-2"></i>
-                    <h6 class="mt-2">Contatos únicos</h6>
-                    <span class="display-6 fw-bold">{{ stats.unique_contacts|default:"0" }}</span>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-2">
-            <div class="card stats-card border-0 shadow-sm mb-3">
-                <div class="card-body text-center">
-                    <i class="bi bi-people-fill fs-2"></i>
-                    <h6 class="mt-2">Grupos</h6>
-                    <span class="display-6 fw-bold">{{ stats.groups|default:"0" }}</span>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-2">
-            <div class="card stats-card border-0 shadow-sm mb-3">
-                <div class="card-body text-center">
-                    <i class="bi bi-check-circle-fill fs-2"></i>
-                    <h6 class="mt-2">Reencaminhadas</h6>
-                    <span class="display-6 fw-bold">{{ stats.forwarded|default:"0" }}</span>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-2">
-            <div class="card stats-card border-0 shadow-sm mb-3">
-                <div class="card-body text-center">
-                    <i class="bi bi-x-circle-fill fs-2"></i>
-                    <h6 class="mt-2">Falhas</h6>
-                    <span class="display-6 fw-bold">{{ stats.failed|default:"0" }}</span>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-2">
-            <div class="card stats-card border-0 shadow-sm mb-3">
-                <div class="card-body text-center">
-                    <i class="bi bi-clock-history fs-2"></i>
-                    <h6 class="mt-2">Última mensagem</h6>
-                    <span class="fw-bold">{{ stats.last_message|default:"-" }}</span>
-                </div>
-            </div>
-        </div>
-    </div>
+    <h1 class="h2 mb-4">Dashboard de Monitoramento</h1>
 
-    <!-- Filtros -->
-    <div class="row mb-4">
-        <div class="col-12">
-            <div class="card filters-section border-0 shadow-sm">
-                <div class="card-body">
-                    <form method="get" class="row g-3 align-items-end">
-                        <div class="col-md-2">
-                            <label class="form-label">Telefone</label>
-                            <input type="text" name="phone" class="form-control search-box" value="{{ phone }}">
-                        </div>
-                        <div class="col-md-2">
-                            <label class="form-label">Status</label>
-                            <select name="status" class="form-select search-box">
-                                <option value="">Todos</option>
-                                <option value="forwarded" {% if status == "forwarded" %}selected{% endif %}>Reencaminhada</option>
-                                <option value="failed" {% if status == "failed" %}selected{% endif %}>Falha</option>
-                                <option value="pending" {% if status == "pending" %}selected{% endif %}>Pendente</option>
-                            </select>
-                        </div>
-                        <div class="col-md-2">
-                            <label class="form-label">Data inicial</label>
-                            <input type="date" name="start_date" class="form-control search-box" value="{{ start_date }}">
-                        </div>
-                        <div class="col-md-2">
-                            <label class="form-label">Data final</label>
-                            <input type="date" name="end_date" class="form-control search-box" value="{{ end_date }}">
-                        </div>
-                        <div class="col-md-2">
-                            <label class="form-label">Tipo</label>
-                            <select name="is_group" class="form-select search-box">
-                                <option value="">Todos</option>
-                                <option value="true" {% if is_group == "true" %}selected{% endif %}>Grupo</option>
-                                <option value="false" {% if is_group == "false" %}selected{% endif %}>Individual</option>
-                            </select>
-                        </div>
-                        <div class="col-md-2 d-grid">
-                            <button type="submit" class="btn btn-light text-primary fw-bold">
-                                <i class="bi bi-funnel-fill me-1"></i> Filtrar
-                            </button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </div>
-    </div>
+    <!-- Abas -->
+    <ul class="nav nav-tabs mb-4">
+        <li class="nav-item">
+            <a class="nav-link {% if active_tab == 'api' %}active{% endif %}" href="?tab=api">
+                <i class="bi bi-hdd-stack-fill me-1"></i> Requisições API
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link {% if active_tab == 'messages' %}active{% endif %}" href="?tab=messages">
+                <i class="bi bi-chat-dots-fill me-1"></i> Mensagens Z-API
+            </a>
+        </li>
+    </ul>
 
-    <!-- Tabela de mensagens -->
-    <div class="row mb-4">
-        <div class="col-12">
-            <div class="card border-0 shadow-sm">
-                <div class="card-body">
-                    <h5 class="card-title mb-3">
-                        <i class="bi bi-envelope-open me-2"></i>
-                        Mensagens Recebidas
-                    </h5>
-                    <div class="table-responsive">
-                        <table class="table table-hover align-middle mb-0">
-                            <thead class="table-light">
-                                <tr>
-                                    <th>Data/Hora</th>
-                                    <th>Mensagem Id</th>
-                                    <th>Telefone</th>
-                                    <th>Mensagem</th>
-                                    <th>Status</th>
-                                    <th>Tipo</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for msg in messages %}
-                                <tr class="message-card">
-                                    <td>{{ msg.created_at|date:"d/m/Y H:i:s" }}</td>
-                                    <td>{{ msg.message_id }}</td>
-                                    <td>{{ msg.phone }}</td>
-                                    <td>{{ msg.message|truncatechars:50|escape }}</td>
-                                    <td>
-                                        {% if msg.external_system_status == 'success' %}
-                                            <span style="color: green; font-weight: bold;">
-                                                &#x2705; Sucesso
-                                            </span>
-                                            {% if msg.forwarded_at %}
-                                                <br><small class="text-muted">{{ msg.forwarded_at|date:"H:i:s" }}</small>
-                                            {% endif %}
-                                        {% elif msg.external_system_status == 'failed' %}
-                                            <span style="color: red; font-weight: bold;">
-                                                &#10060; Falha
-                                            </span>
-                                            {% if msg.forwarded_at %}
-                                                <br><small class="text-muted">{{ msg.forwarded_at|date:"H:i:s" }}</small>
-                                            {% endif %}
-                                        {% elif msg.external_system_status == 'pending' %}
-                                            <span style="color: orange; font-weight: bold;">
-                                                &#9203; Pendente
-                                            </span>
-                                        {% else %}
-                                            <span style="color: gray; font-weight: bold;">
-                                                <i class="bi bi-question-circle"></i> N/A
-                                            </span>
-                                        {% endif %}
-                                    </td>
-                                    <td>
-                                        {% if msg.is_group %}
-                                            <span class="badge bg-info status-badge">Grupo</span>
-                                        {% else %}
-                                            <span class="badge bg-secondary status-badge">Individual</span>
-                                        {% endif %}
-                                    </td>
-                                </tr>
-                                {% empty %}
-                                <tr>
-                                    <td colspan="5" class="text-center text-muted">Nenhuma mensagem encontrada.</td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
+    {% if active_tab == "api" %}
+        <!-- Conteúdo da aba API -->
+        <div class="row mb-4">
+            <div class="col-md-2">
+                <div class="card stats-card border-0 shadow-sm">
+                    <div class="card-body text-center">
+                        <i class="bi bi-server fs-2 text-primary"></i>
+                        <h6 class="mt-2">Total</h6>
+                        <span class="display-6 fw-bold">{{ stats.total_requests|default:"0" }}</span>
                     </div>
-                    <!-- Paginação -->
-                    {% if is_paginated %}
-                    <nav class="mt-3">
-                        <ul class="pagination justify-content-center">
-                            {% if page_obj.has_previous %}
-                            <li class="page-item">
-                                <a class="page-link" href="?{% if request.GET %}{{ request.GET.urlencode }}&{% endif %}page={{ page_obj.previous_page_number }}" aria-label="Anterior">
-                                    <span aria-hidden="true">&laquo;</span>
-                                </a>
-                            </li>
-                            {% else %}
-                            <li class="page-item disabled">
-                                <span class="page-link">&laquo;</span>
-                            </li>
-                            {% endif %}
-                            {% for num in page_obj.paginator.page_range %}
-                                {% if page_obj.number == num %}
-                                    <li class="page-item active"><span class="page-link">{{ num }}</span></li>
-                                {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
-                                    <li class="page-item"><a class="page-link" href="?{% if request.GET %}{{ request.GET.urlencode }}&{% endif %}page={{ num }}">{{ num }}</a></li>
-                                {% endif %}
-                            {% endfor %}
-                            {% if page_obj.has_next %}
-                            <li class="page-item">
-                                <a class="page-link" href="?{% if request.GET %}{{ request.GET.urlencode }}&{% endif %}page={{ page_obj.next_page_number }}" aria-label="Próxima">
-                                    <span aria-hidden="true">&raquo;</span>
-                                </a>
-                            </li>
-                            {% else %}
-                            <li class="page-item disabled">
-                                <span class="page-link">&raquo;</span>
-                            </li>
-                            {% endif %}
-                        </ul>
-                    </nav>
-                    {% endif %}
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="card stats-card border-0 shadow-sm">
+                    <div class="card-body text-center">
+                        <i class="bi bi-check-circle-fill fs-2 text-success"></i>
+                        <h6 class="mt-2">Sucesso</h6>
+                        <span class="display-6 fw-bold">{{ stats.success_requests|default:"0" }}</span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="card stats-card border-0 shadow-sm">
+                    <div class="card-body text-center">
+                        <i class="bi bi-x-circle-fill fs-2 text-danger"></i>
+                        <h6 class="mt-2">Falhas</h6>
+                        <span class="display-6 fw-bold">{{ stats.failed_requests|default:"0" }}</span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="card stats-card border-0 shadow-sm">
+                    <div class="card-body text-center">
+                        <i class="bi bi-globe fs-2 text-info"></i>
+                        <h6 class="mt-2">IPs Únicos</h6>
+                        <span class="display-6 fw-bold">{{ stats.unique_ips|default:"0" }}</span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="card stats-card border-0 shadow-sm">
+                    <div class="card-body text-center">
+                        <i class="bi bi-speedometer2 fs-2 text-warning"></i>
+                        <h6 class="mt-2">Tempo Médio</h6>
+                        <span class="display-6 fw-bold">{{ stats.avg_time|default:"0" }}</span>
+                        <small class="text-muted">ms</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="card stats-card border-0 shadow-sm">
+                    <div class="card-body text-center">
+                        <i class="bi bi-clock-history fs-2 text-secondary"></i>
+                        <h6 class="mt-2">Última Requisição</h6>
+                        <span class="fw-bold">{{ stats.last_request|default:"-" }}</span>
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
+
+        <!-- Filtros -->
+        <div class="card filters-section border-0 shadow-sm mb-4">
+            <div class="card-body">
+                <form method="get" class="row g-3 align-items-end">
+                    <input type="hidden" name="tab" value="api">
+                    <div class="col-md-2">
+                        <label class="form-label">Nº da Carga</label>
+                        <input type="text" name="carga_number" class="form-control search-box" placeholder="Buscar..." value="{{ carga_number }}">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Status</label>
+                        <select name="request_status" class="form-select search-box">
+                            <option value="">Todos</option>
+                            <option value="success" {% if request_status == "success" %}selected{% endif %}>Sucesso</option>
+                            <option value="invalid_token" {% if request_status == "invalid_token" %}selected{% endif %}>Token Inválido</option>
+                            <option value="invalid_input" {% if request_status == "invalid_input" %}selected{% endif %}>Entrada Inválida</option>
+                            <option value="system_error" {% if request_status == "system_error" %}selected{% endif %}>Erro de Sistema</option>
+                            <option value="timeout" {% if request_status == "timeout" %}selected{% endif %}>Timeout</option>
+                            <option value="rate_limited" {% if request_status == "rate_limited" %}selected{% endif %}>Rate Limited</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Token</label>
+                        <select name="token" class="form-select search-box">
+                            <option value="">Todos</option>
+                            {% for token in available_tokens %}
+                            <option value="{{ token.id }}" {% if token_id == token.id|stringformat:"s" %}selected{% endif %}>
+                                {{ token.name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Data Inicial</label>
+                        <input type="date" name="start_date" class="form-control search-box" value="{{ start_date }}">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Data Final</label>
+                        <input type="date" name="end_date" class="form-control search-box" value="{{ end_date }}">
+                    </div>
+                    <div class="col-md-2 d-grid">
+                        <button type="submit" class="btn btn-light text-primary fw-bold">
+                            <i class="bi bi-funnel-fill me-1"></i> Filtrar
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Tabela de logs -->
+        <div class="card border-0 shadow-sm">
+            <div class="card-body">
+                <h5 class="card-title mb-3"><i class="bi bi-list-ul me-2"></i>Logs da API</h5>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Data/Hora</th>
+                                <th>IP</th>
+                                <th>Token</th>
+                                <th>Carga</th>
+                                <th>Status</th>
+                                <th>Resposta</th>
+                                <th>Tempo (ms)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for log in api_logs %}
+                            <tr>
+                                <td>{{ log.created_at|date:"d/m/Y H:i:s" }}</td>
+                                <td>{{ log.ip_address }}</td>
+                                <td>{{ log.api_token.name|default:"-" }}</td>
+                                <td>{{ log.carga_number }}</td>
+                                <td>
+                                    {% if log.request_status == 'success' %}
+                                        <span class="badge bg-success">Sucesso</span>
+                                    {% elif 'error' in log.request_status or 'invalid' in log.request_status %}
+                                        <span class="badge bg-danger">{{ log.get_request_status_display }}</span>
+                                    {% else %}
+                                        <span class="badge bg-warning text-dark">{{ log.get_request_status_display }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ log.response_message|truncatewords:10|default:"-" }}</td>
+                                <td>{{ log.processing_time_ms|default:"-" }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="7" class="text-center text-muted py-4">Nenhuma requisição encontrada.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% include "pagination.html" %}
+            </div>
+        </div>
+
+    {% else %}
+        <!-- Conteúdo da aba Messages -->
+        <div class="row mb-4">
+            <div class="col-md-2">
+                <div class="card stats-card border-0 shadow-sm">
+                    <div class="card-body text-center">
+                        <i class="bi bi-envelope-fill fs-2 text-primary"></i>
+                        <h6 class="mt-2">Mensagens</h6>
+                        <span class="display-6 fw-bold">{{ stats.total_messages|default:"0" }}</span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="card stats-card border-0 shadow-sm">
+                    <div class="card-body text-center">
+                        <i class="bi bi-person-lines-fill fs-2 text-info"></i>
+                        <h6 class="mt-2">Contatos</h6>
+                        <span class="display-6 fw-bold">{{ stats.unique_contacts|default:"0" }}</span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="card stats-card border-0 shadow-sm">
+                    <div class="card-body text-center">
+                        <i class="bi bi-people-fill fs-2 text-secondary"></i>
+                        <h6 class="mt-2">Grupos</h6>
+                        <span class="display-6 fw-bold">{{ stats.groups|default:"0" }}</span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="card stats-card border-0 shadow-sm">
+                    <div class="card-body text-center">
+                        <i class="bi bi-check-circle-fill fs-2 text-success"></i>
+                        <h6 class="mt-2">Reencaminhadas</h6>
+                        <span class="display-6 fw-bold">{{ stats.forwarded|default:"0" }}</span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="card stats-card border-0 shadow-sm">
+                    <div class="card-body text-center">
+                        <i class="bi bi-x-circle-fill fs-2 text-danger"></i>
+                        <h6 class="mt-2">Falhas</h6>
+                        <span class="display-6 fw-bold">{{ stats.failed|default:"0" }}</span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="card stats-card border-0 shadow-sm">
+                    <div class="card-body text-center">
+                        <i class="bi bi-clock-history fs-2 text-secondary"></i>
+                        <h6 class="mt-2">Última Mensagem</h6>
+                        <span class="fw-bold">{{ stats.last_message|default:"-" }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filtros -->
+        <div class="card filters-section border-0 shadow-sm mb-4">
+            <div class="card-body">
+                <form method="get" class="row g-3 align-items-end">
+                    <input type="hidden" name="tab" value="messages">
+                    <div class="col-md-2">
+                        <label class="form-label">Telefone</label>
+                        <input type="text" name="phone" class="form-control search-box" placeholder="Buscar..." value="{{ phone }}">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Status</label>
+                        <select name="status" class="form-select search-box">
+                            <option value="">Todos</option>
+                            <option value="success" {% if status == "success" %}selected{% endif %}>Sucesso</option>
+                            <option value="failed" {% if status == "failed" %}selected{% endif %}>Falha</option>
+                            <option value="pending" {% if status == "pending" %}selected{% endif %}>Pendente</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Data Inicial</label>
+                        <input type="date" name="start_date" class="form-control search-box" value="{{ start_date }}">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Data Final</label>
+                        <input type="date" name="end_date" class="form-control search-box" value="{{ end_date }}">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Tipo</label>
+                        <select name="is_group" class="form-select search-box">
+                            <option value="">Todos</option>
+                            <option value="true" {% if is_group == "true" %}selected{% endif %}>Grupo</option>
+                            <option value="false" {% if is_group == "false" %}selected{% endif %}>Individual</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2 d-grid">
+                        <button type="submit" class="btn btn-light text-primary fw-bold">
+                            <i class="bi bi-funnel-fill me-1"></i> Filtrar
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Tabela de mensagens -->
+        <div class="card border-0 shadow-sm">
+            <div class="card-body">
+                <h5 class="card-title mb-3"><i class="bi bi-envelope-open me-2"></i>Mensagens Recebidas</h5>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Data/Hora</th>
+                                <th>Telefone</th>
+                                <th>Mensagem</th>
+                                <th>Status</th>
+                                <th>Tipo</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for msg in messages %}
+                            <tr>
+                                <td>{{ msg.created_at|date:"d/m/Y H:i:s" }}</td>
+                                <td>{{ msg.phone }}</td>
+                                <td>{{ msg.message|truncatechars:50|escape }}</td>
+                                <td>
+                                    {% if msg.external_system_status == 'success' %}
+                                        <span class="badge bg-success">Sucesso</span>
+                                    {% elif msg.external_system_status == 'failed' %}
+                                        <span class="badge bg-danger">Falha</span>
+                                    {% else %}
+                                        <span class="badge bg-warning text-dark">Pendente</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if msg.is_group %}
+                                        <span class="badge bg-info text-dark">Grupo</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">Individual</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="5" class="text-center text-muted py-4">Nenhuma mensagem encontrada.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% include "pagination.html" %}
+            </div>
+        </div>
+    {% endif %}
 </div>
-{% endblock %}
 
-{% block extra_js %}
-<!-- Adicione aqui scripts JS específicos do dashboard, se necessário -->
 {% endblock %}
-
