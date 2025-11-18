@@ -44,4 +44,5 @@ staticfiles/
 .DS_Store
 Thumbs.db
 
-
+# Imagens
+*.png

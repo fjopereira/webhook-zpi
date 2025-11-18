@@ -13,7 +13,7 @@ from django.views.decorators.http import require_http_methods
 from django.shortcuts import render
 from django.utils import timezone
 from django.contrib.auth.decorators import login_required
-from datetime import date, timedelta
+from datetime import timedelta
 from django.db import models
 
 from .models import MessageLog
@@ -201,15 +201,32 @@ def dashboard(request):
         status = request.GET.get("status", "")
         is_group = request.GET.get("is_group", "")
         broadcast = request.GET.get("broadcast", "")
-        start_date = request.GET.get("start_date") or date.today().strftime("%Y-%m-%d")
-        end_date = request.GET.get("end_date") or date.today().strftime("%Y-%m-%d")
+        start_date_str = request.GET.get("start_date")
+        end_date_str = request.GET.get("end_date")
         message_id = request.GET.get("message_id", "")
 
         messages = MessageLog.objects.all()
 
-        if not (phone or status or start_date or end_date or is_group or broadcast):
+        # Filtro padrão: apenas se nenhum outro filtro for fornecido
+        if not any(
+            [
+                phone,
+                status,
+                is_group,
+                broadcast,
+                start_date_str,
+                end_date_str,
+                message_id,
+            ]
+        ):
             today = timezone.now().date()
             messages = messages.filter(created_at__date=today)
+            start_date = today.strftime("%Y-%m-%d")
+            end_date = today.strftime("%Y-%m-%d")
+        else:
+            start_date = start_date_str or ""
+            end_date = end_date_str or ""
+
         if message_id:
             messages = messages.filter(message_id=message_id)
         if phone:
@@ -225,15 +242,13 @@ def dashboard(request):
         if broadcast != "":
             messages = messages.filter(broadcast=(broadcast == "true"))
 
-        # Estatísticas MessageLog
-        total_messages = MessageLog.objects.count()
-        unique_contacts = MessageLog.objects.values("phone").distinct().count()
-        groups = MessageLog.objects.filter(is_group=True).count()
-        forwarded = MessageLog.objects.filter(
-            external_system_status="forwarded"
-        ).count()
-        failed = MessageLog.objects.filter(external_system_status="failed").count()
-        last_message = MessageLog.objects.order_by("-created_at").first()
+        # Estatísticas MessageLog (baseadas nos filtros)
+        total_messages = messages.count()
+        unique_contacts = messages.values("phone").distinct().count()
+        groups = messages.filter(is_group=True).count()
+        forwarded = messages.filter(external_system_status="forwarded").count()
+        failed = messages.filter(external_system_status="failed").count()
+        last_message = messages.order_by("-created_at").first()
         last_message_time = (
             last_message.created_at.strftime("%d/%m/%Y %H:%M:%S")
             if last_message
@@ -271,15 +286,29 @@ def dashboard(request):
         request_status = request.GET.get("request_status", "")
         response_status = request.GET.get("response_status", "")
         token_id = request.GET.get("token", "")
-        start_date = request.GET.get("start_date") or date.today().strftime("%Y-%m-%d")
-        end_date = request.GET.get("end_date") or date.today().strftime("%Y-%m-%d")
+        start_date_str = request.GET.get("start_date")
+        end_date_str = request.GET.get("end_date")
 
         api_logs = ApiRequestLog.objects.all()
 
-        # Filtro padrão: requisições do dia atual
-        if not (carga_number or request_status or response_status or token_id):
+        # Filtro padrão: apenas se nenhum outro filtro for fornecido
+        if not any(
+            [
+                carga_number,
+                request_status,
+                response_status,
+                token_id,
+                start_date_str,
+                end_date_str,
+            ]
+        ):
             today = timezone.now().date()
             api_logs = api_logs.filter(created_at__date=today)
+            start_date = today.strftime("%Y-%m-%d")
+            end_date = today.strftime("%Y-%m-%d")
+        else:
+            start_date = start_date_str or ""
+            end_date = end_date_str or ""
 
         if carga_number:
             api_logs = api_logs.filter(carga_number__icontains=carga_number)
@@ -294,19 +323,15 @@ def dashboard(request):
         if end_date:
             api_logs = api_logs.filter(created_at__date__lte=end_date)
 
-        # Estatísticas API
-        total_requests = ApiRequestLog.objects.count()
-        success_requests = ApiRequestLog.objects.filter(
-            request_status="success"
-        ).count()
-        failed_requests = ApiRequestLog.objects.exclude(
-            request_status="success"
-        ).count()
-        unique_ips = ApiRequestLog.objects.values("ip_address").distinct().count()
-        avg_time = ApiRequestLog.objects.filter(
-            processing_time_ms__isnull=False
-        ).aggregate(models.Avg("processing_time_ms"))["processing_time_ms__avg"]
-        last_request = ApiRequestLog.objects.order_by("-created_at").first()
+        # Estatísticas API (baseadas nos filtros)
+        total_requests = api_logs.count()
+        success_requests = api_logs.filter(request_status="success").count()
+        failed_requests = api_logs.exclude(request_status="success").count()
+        unique_ips = api_logs.values("ip_address").distinct().count()
+        avg_time = api_logs.filter(processing_time_ms__isnull=False).aggregate(
+            models.Avg("processing_time_ms")
+        )["processing_time_ms__avg"]
+        last_request = api_logs.order_by("-created_at").first()
         last_request_time = (
             last_request.created_at.strftime("%d/%m/%Y %H:%M:%S")
             if last_request
