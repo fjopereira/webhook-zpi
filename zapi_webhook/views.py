@@ -18,6 +18,7 @@ from django.db import models
 
 from .models import MessageLog
 from django.core.paginator import Paginator
+from django.core.cache import cache
 import requests
 
 
@@ -74,6 +75,145 @@ def _cleanup_old_api_requests():
             )
     except Exception as e:
         logger.error(f"Erro durante limpeza automática de logs da API: {e}")
+
+
+def try_urls_with_cache(
+    urls_string: str,
+    method: str = "GET",
+    timeout: int = 10,
+    cache_key: str = "default",
+    cache_timeout: int = 300,
+    **kwargs,
+) -> requests.Response:
+    """
+    Tenta fazer requisição HTTP em múltiplas URLs com sistema de cache inteligente.
+
+    O sistema tenta primeiro a URL que funcionou anteriormente (cache), depois tenta
+    todas as URLs em ordem até encontrar uma que funcione.
+
+    Args:
+        urls_string: String com URLs separadas por vírgula (ex: "127.0.0.1:8003,192.168.1.100:8004")
+        method: Método HTTP (GET, POST, etc)
+        timeout: Timeout por tentativa em segundos
+        cache_key: Chave única para identificar este grupo de URLs no cache
+        cache_timeout: Tempo em segundos que a URL bem-sucedida fica em cache (padrão: 5min)
+        **kwargs: Argumentos adicionais para requests (json, headers, etc)
+
+    Returns:
+        requests.Response: Resposta da requisição bem-sucedida
+
+    Raises:
+        requests.exceptions.RequestException: Se todas as URLs falharem
+    """
+    # Parsear URLs da string
+    urls = [url.strip() for url in urls_string.split(",") if url.strip()]
+
+    if not urls:
+        raise ValueError("Nenhuma URL válida fornecida")
+
+    # Adicionar http:// se não tiver protocolo
+    urls = [
+        url if url.startswith(("http://", "https://")) else f"http://{url}"
+        for url in urls
+    ]
+
+    # Tentar obter URL do cache
+    cache_full_key = f"url_fallback_{cache_key}"
+    cached_url = cache.get(cache_full_key)
+
+    # Lista de URLs para tentar (cache primeiro, depois as outras)
+    urls_to_try = []
+    if cached_url and cached_url in urls:
+        urls_to_try.append(cached_url)
+        # Adicionar as outras URLs (sem repetir a do cache)
+        urls_to_try.extend([url for url in urls if url != cached_url])
+        logger.debug(f"Fallback: Tentando primeiro URL do cache: {cached_url}")
+    else:
+        urls_to_try = urls
+        logger.debug("Fallback: Cache vazio ou inválido, tentando URLs em ordem")
+
+    last_exception = None
+    failed_urls = []
+
+    # Tentar cada URL
+    for i, url in enumerate(urls_to_try, 1):
+        try:
+            logger.info(f"Fallback: Tentativa {i}/{len(urls_to_try)} - URL: {url}")
+            start_time = time.time()
+
+            # Fazer requisição
+            response = requests.request(
+                method=method, url=url, timeout=timeout, **kwargs
+            )
+
+            elapsed_ms = int((time.time() - start_time) * 1000)
+
+            # Verificar se foi bem-sucedido (status 2xx ou 3xx)
+            if 200 <= response.status_code < 400:
+                logger.info(
+                    f"Fallback: ✓ Sucesso com URL {url} - "
+                    f"Status: {response.status_code} - Tempo: {elapsed_ms}ms"
+                )
+
+                # Salvar no cache
+                if url != cached_url:
+                    cache.set(cache_full_key, url, cache_timeout)
+                    logger.info(
+                        f"Fallback: URL {url} salva no cache por {cache_timeout}s"
+                    )
+
+                # Log de falhas anteriores (se houver)
+                if failed_urls:
+                    logger.warning(
+                        f"Fallback: URLs que falharam antes do sucesso: {', '.join(failed_urls)}"
+                    )
+
+                return response
+            else:
+                # Status de erro HTTP
+                failed_urls.append(url)
+                logger.warning(
+                    f"Fallback: ✗ URL {url} retornou status {response.status_code} - "
+                    f"Tempo: {elapsed_ms}ms"
+                )
+                last_exception = requests.exceptions.HTTPError(
+                    f"HTTP {response.status_code}", response=response
+                )
+
+        except requests.exceptions.Timeout:
+            failed_urls.append(url)
+            elapsed_ms = int((time.time() - start_time) * 1000)
+            logger.warning(f"Fallback: ✗ Timeout na URL {url} após {elapsed_ms}ms")
+            last_exception = requests.exceptions.Timeout(f"Timeout ao acessar {url}")
+
+        except requests.exceptions.ConnectionError as e:
+            failed_urls.append(url)
+            logger.warning(f"Fallback: ✗ Erro de conexão na URL {url}: {str(e)[:100]}")
+            last_exception = e
+
+        except requests.exceptions.RequestException as e:
+            failed_urls.append(url)
+            logger.warning(f"Fallback: ✗ Erro na URL {url}: {str(e)[:100]}")
+            last_exception = e
+
+    # Se chegou aqui, todas as URLs falharam
+    logger.error(
+        f"Fallback: ✗✗✗ TODAS as {len(urls_to_try)} URLs falharam! "
+        f"URLs tentadas: {', '.join(failed_urls)}"
+    )
+
+    # Limpar cache se todas falharam
+    if cached_url:
+        cache.delete(cache_full_key)
+        logger.info("Fallback: Cache limpo devido a falhas consecutivas")
+
+    # Levantar a última exceção
+    if last_exception:
+        raise last_exception
+    else:
+        raise requests.exceptions.RequestException(
+            f"Todas as URLs falharam: {', '.join(failed_urls)}"
+        )
 
 
 def _url_token_is_valid(url_token: str) -> bool:
@@ -137,10 +277,14 @@ def zapi_on_message_received(request: HttpRequest, url_token: str) -> HttpRespon
                 "broadcast": broadcast,
             }
 
-            response = requests.post(
-                settings.EXTERNAL_SYSTEM_URL,
-                json=forward_data,
+            # Usar sistema de fallback com múltiplas URLs
+            response = try_urls_with_cache(
+                urls_string=settings.EXTERNAL_SYSTEM_URL,
+                method="POST",
                 timeout=settings.EXTERNAL_SYSTEM_TIMEOUT,
+                cache_key="external_system",
+                cache_timeout=300,  # 5 minutos
+                json=forward_data,
             )
 
             # Update database with forwarding results
@@ -457,18 +601,23 @@ def consulta_status_carga(request):
             return render(request, "consulta_status_carga.html", context)
 
         try:
-            # Construir a URL completa
-            full_url = f"{carga_status_url.rstrip('/')}/{sanitized_carga}"
+            # Construir URLs para fallback (adiciona o número da carga em cada URL)
+            base_urls = carga_status_url.rstrip("/")
+            # Se tiver múltiplas URLs, adicionar o número da carga em cada uma
+            urls_with_carga = ",".join(
+                [f"{url.rstrip('/')}/{sanitized_carga}" for url in base_urls.split(",")]
+            )
             timeout = getattr(settings, "CARGA_STATUS_TIMEOUT", 10)
 
-            logger.info(
-                f"Consultando status da carga {sanitized_carga} na URL: {full_url}"
-            )
+            logger.info(f"Consultando status da carga {sanitized_carga}")
 
-            # Fazer a requisição para o sistema externo
-            response = requests.get(
-                full_url,
+            # Fazer a requisição com sistema de fallback
+            response = try_urls_with_cache(
+                urls_string=urls_with_carga,
+                method="GET",
                 timeout=timeout,
+                cache_key="carga_status",
+                cache_timeout=300,  # 5 minutos
                 headers={
                     "User-Agent": "Tambasa-Webhook/1.0",
                     "Accept": "text/plain, text/html, */*",
@@ -641,17 +790,25 @@ def api_consulta_carga(request: HttpRequest, carga_number: str) -> JsonResponse:
         )
 
     try:
-        # Construir URL e fazer requisição
-        full_url = f"{carga_status_url.rstrip('/')}/{sanitized_carga}"
+        # Construir URLs para fallback (adiciona o número da carga em cada URL)
+        base_urls = carga_status_url.rstrip("/")
+        # Se tiver múltiplas URLs, adicionar o número da carga em cada uma
+        urls_with_carga = ",".join(
+            [f"{url.rstrip('/')}/{sanitized_carga}" for url in base_urls.split(",")]
+        )
         timeout = getattr(settings, "CARGA_STATUS_TIMEOUT", 10)
 
         logger.info(
             f"API: Consultando carga {sanitized_carga} - Token: {token_obj.name} - IP: {ip_address}"
         )
 
-        response = requests.get(
-            full_url,
+        # Fazer requisição com sistema de fallback
+        response = try_urls_with_cache(
+            urls_string=urls_with_carga,
+            method="GET",
             timeout=timeout,
+            cache_key="carga_status_api",
+            cache_timeout=300,  # 5 minutos
             headers={
                 "User-Agent": "Webhook-API/1.0",
                 "Accept": "application/json, text/plain, */*",
