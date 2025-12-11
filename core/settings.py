@@ -191,6 +191,25 @@ MESSAGE_RETENTION_DAYS = int(os.environ.get("MESSAGE_RETENTION_DAYS", "3"))
 CARGA_STATUS_URL = os.environ.get("CARGA_STATUS_URL", "")
 CARGA_STATUS_TIMEOUT = int(os.environ.get("CARGA_STATUS_TIMEOUT", "10"))
 
+# Webhook de retorno de entrega (callback da empresa externa)
+DELIVERY_WEBHOOK_TOKEN = os.environ.get("DELIVERY_WEBHOOK_TOKEN", "")
+if not DELIVERY_WEBHOOK_TOKEN:
+    raise ValueError(
+        "DELIVERY_WEBHOOK_TOKEN environment variable is required. "
+        "Set it in your .env file."
+    )
+
+# URL base do sistema interno (para encaminhar callback)
+INTERNAL_SYSTEM_URL = os.environ.get("INTERNAL_SYSTEM_URL", "http://127.0.0.1:8000")
+
+# Timeout para requisições ao sistema interno (em segundos)
+INTERNAL_FORWARD_TIMEOUT = int(os.environ.get("INTERNAL_FORWARD_TIMEOUT", "10"))
+
+# Retenção de logs de delivery (em dias)
+DELIVERY_WEBHOOK_LOG_RETENTION_DAYS = int(
+    os.environ.get("DELIVERY_WEBHOOK_LOG_RETENTION_DAYS", "7")
+)
+
 LOGIN_REDIRECT_URL = "/dashboard/"
 LOGOUT_REDIRECT_URL = "/"
 

@@ -11,9 +11,11 @@ Ponte segura entre Z-API e sistemas internos com dashboard de monitoramento.
 
 - **Webhook seguro** com autenticação por token
 - **Ponte automática** para sistema interno
+- **Webhook de delivery** para callbacks de status de entrega
 - **Dashboard de monitoramento** em tempo real
 - **Consulta de status de carga** pública (sem login)
-- **Logs detalhados** de todas as mensagens
+- **API RESTful** com autenticação Bearer token e rate limiting
+- **Logs detalhados** de todas as mensagens e callbacks
 - **Filtros avançados** e estatísticas
 - **Limpeza automática** de registros antigos
 - **PostgreSQL** para produção
@@ -254,6 +256,83 @@ git push heroku main
 - **Rate limiting** removido (adicione se necessário)
 - **Firewall** recomendado no servidor
 - **Monitoramento** de tentativas de acesso
+
+## 📥 Webhook de Retorno de Entrega (Delivery Callback)
+
+Sistema de callbacks para receber atualizações de status de entrega do sistema externo.
+
+### Configuração
+
+**Variáveis de ambiente:**
+```bash
+DELIVERY_WEBHOOK_TOKEN=token-unico-delivery-seguro
+INTERNAL_SYSTEM_URL=http://127.0.0.1:8000
+INTERNAL_FORWARD_TIMEOUT=10
+DELIVERY_WEBHOOK_LOG_RETENTION_DAYS=7
+```
+
+### Endpoint
+
+- **URL**: `POST https://seu-dominio.com/webhooks/delivery-callback/<token>/`
+- **Autenticação**: Token na URL (configurado em `DELIVERY_WEBHOOK_TOKEN`)
+- **Content-Type**: `application/json`
+
+### Formato da Requisição
+
+O sistema externo deve enviar callbacks no seguinte formato:
+
+```json
+{
+  "id": "message_id_aqui",
+  "mensagem": "Status da entrega"
+}
+```
+
+### Exemplo de Uso
+
+```bash
+curl -X POST "https://seu-dominio.com/webhooks/delivery-callback/seu-token/" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "id": "3EB0123456789ABC",
+    "mensagem": "Entregue com sucesso"
+  }'
+```
+
+### Respostas
+
+**Sucesso (200):**
+```json
+{
+  "status": "ok",
+  "message_id": "3EB0123456789ABC"
+}
+```
+
+**Erros:**
+- `401` - Token inválido
+- `400` - JSON inválido ou campo faltando
+- `404` - ID de mensagem não encontrado
+- `502` - Erro ao encaminhar para sistema interno
+
+### Encaminhamento Automático
+
+Callbacks recebidos são automaticamente encaminhados para:
+- **Rota**: `{INTERNAL_SYSTEM_URL}/atualizaretornomensagemporid/{id}/`
+- **Método**: POST
+- **Payload**: `{"retorno_envio": "mensagem recebida"}`
+
+### Monitoramento
+
+Acesse o Dashboard em **Entregas (Delivery)** para visualizar:
+- Total de callbacks recebidos
+- Taxa de sucesso/erro
+- Tempo médio de processamento
+- Logs detalhados com filtros (message_id, status, período)
+
+### Limpeza Automática
+
+Logs antigos são removidos automaticamente após o período configurado em `DELIVERY_WEBHOOK_LOG_RETENTION_DAYS`.
 
 ## API de Consulta de Carga
 

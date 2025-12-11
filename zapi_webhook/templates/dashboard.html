@@ -61,6 +61,11 @@
                 <i class="bi bi-chat-dots-fill me-1"></i> Mensagens Z-API
             </a>
         </li>
+        <li class="nav-item">
+            <a class="nav-link {% if active_tab == 'delivery' %}active{% endif %}" href="?tab=delivery">
+                <i class="bi bi-truck me-1"></i> Entregas (Delivery)
+            </a>
+        </li>
     </ul>
 
     {% if active_tab == "api" %}
@@ -211,6 +216,151 @@
                             {% empty %}
                             <tr>
                                 <td colspan="7" class="text-center text-muted py-4">Nenhuma requisição encontrada.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% include "pagination.html" %}
+            </div>
+        </div>
+
+    {% elif active_tab == "delivery" %}
+        <!-- Conteúdo da aba Delivery -->
+        <div class="row mb-4">
+            <div class="col-md-2">
+                <div class="card stats-card border-0 shadow-sm">
+                    <div class="card-body text-center">
+                        <i class="bi bi-truck fs-2 text-primary"></i>
+                        <h6 class="mt-2">Total Callbacks</h6>
+                        <span class="display-6 fw-bold">{{ stats.total_callbacks|default:"0" }}</span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="card stats-card border-0 shadow-sm">
+                    <div class="card-body text-center">
+                        <i class="bi bi-check-circle-fill fs-2 text-success"></i>
+                        <h6 class="mt-2">Sucesso</h6>
+                        <span class="display-6 fw-bold">{{ stats.success_callbacks|default:"0" }}</span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="card stats-card border-0 shadow-sm">
+                    <div class="card-body text-center">
+                        <i class="bi bi-question-circle-fill fs-2 text-warning"></i>
+                        <h6 class="mt-2">Não Encontrado</h6>
+                        <span class="display-6 fw-bold">{{ stats.not_found_callbacks|default:"0" }}</span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="card stats-card border-0 shadow-sm">
+                    <div class="card-body text-center">
+                        <i class="bi bi-x-circle-fill fs-2 text-danger"></i>
+                        <h6 class="mt-2">Erros</h6>
+                        <span class="display-6 fw-bold">{{ stats.forward_error_callbacks|default:"0" }}</span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="card stats-card border-0 shadow-sm">
+                    <div class="card-body text-center">
+                        <i class="bi bi-speedometer2 fs-2 text-info"></i>
+                        <h6 class="mt-2">Tempo Médio</h6>
+                        <span class="display-6 fw-bold">{{ stats.avg_time|default:"-" }}</span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="card stats-card border-0 shadow-sm">
+                    <div class="card-body text-center">
+                        <i class="bi bi-clock-history fs-2 text-secondary"></i>
+                        <h6 class="mt-2">Último Callback</h6>
+                        <span class="fw-bold">{{ stats.last_callback|default:"-" }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filtros -->
+        <div class="card filters-section border-0 shadow-sm mb-4">
+            <div class="card-body">
+                <form method="get" class="row g-3 align-items-end">
+                    <input type="hidden" name="tab" value="delivery">
+                    <div class="col-md-3">
+                        <label class="form-label">Message ID</label>
+                        <input type="text" name="message_id" class="form-control search-box" placeholder="Buscar..." value="{{ message_id }}">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Status</label>
+                        <select name="webhook_status" class="form-select search-box">
+                            <option value="">Todos</option>
+                            <option value="success" {% if webhook_status == "success" %}selected{% endif %}>Sucesso</option>
+                            <option value="not_found" {% if webhook_status == "not_found" %}selected{% endif %}>Não Encontrado</option>
+                            <option value="forward_error" {% if webhook_status == "forward_error" %}selected{% endif %}>Erro</option>
+                            <option value="invalid_payload" {% if webhook_status == "invalid_payload" %}selected{% endif %}>Payload Inválido</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Data Inicial</label>
+                        <input type="date" name="start_date" class="form-control search-box" value="{{ start_date }}">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Data Final</label>
+                        <input type="date" name="end_date" class="form-control search-box" value="{{ end_date }}">
+                    </div>
+                    <div class="col-md-3 d-grid">
+                        <button type="submit" class="btn btn-light text-primary fw-bold">
+                            <i class="bi bi-funnel-fill me-1"></i> Filtrar
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Tabela de logs de delivery -->
+        <div class="card border-0 shadow-sm">
+            <div class="card-body">
+                <h5 class="card-title mb-3"><i class="bi bi-truck me-2"></i>Logs de Delivery</h5>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Data/Hora</th>
+                                <th>Message ID</th>
+                                <th>Mensagem</th>
+                                <th>Status</th>
+                                <th>IP</th>
+                                <th>HTTP Code</th>
+                                <th>Tempo (ms)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for log in delivery_logs %}
+                            <tr>
+                                <td>{{ log.created_at|date:"d/m/Y H:i:s" }}</td>
+                                <td>{{ log.message_id|truncatechars:20 }}</td>
+                                <td>{{ log.delivery_message|truncatechars:40|default:"-" }}</td>
+                                <td>
+                                    {% if log.webhook_status == 'success' %}
+                                        <span class="badge bg-success">Sucesso</span>
+                                    {% elif log.webhook_status == 'not_found' %}
+                                        <span class="badge bg-warning text-dark">Não Encontrado</span>
+                                    {% elif log.webhook_status == 'forward_error' %}
+                                        <span class="badge bg-danger">Erro</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">{{ log.get_webhook_status_display }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ log.ip_address }}</td>
+                                <td>{{ log.internal_route_status_code|default:"-" }}</td>
+                                <td>{{ log.processing_time_ms|default:"-" }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="7" class="text-center text-muted py-4">Nenhum callback encontrado.</td>
                             </tr>
                             {% endfor %}
                         </tbody>

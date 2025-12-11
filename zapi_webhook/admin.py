@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import MessageLog, ApiToken, ApiRequestLog
+from .models import MessageLog, ApiToken, ApiRequestLog, DeliveryWebhookLog
 
 
 # Configuração existente do MessageLog (manter)
@@ -122,4 +122,39 @@ class ApiRequestLogAdmin(admin.ModelAdmin):
 
     def has_change_permission(self, request, obj=None):
         # Não permitir editar
+        return False
+
+
+# Configuração para DeliveryWebhookLog
+@admin.register(DeliveryWebhookLog)
+class DeliveryWebhookLogAdmin(admin.ModelAdmin):
+    list_display = (
+        "created_at",
+        "message_id",
+        "webhook_status",
+        "ip_address",
+        "processing_time_ms",
+    )
+    list_filter = ("webhook_status", "created_at")
+    search_fields = ("message_id", "delivery_message", "ip_address")
+    readonly_fields = (
+        "created_at",
+        "message_id",
+        "delivery_message",
+        "raw_payload",
+        "ip_address",
+        "webhook_status",
+        "internal_route_status_code",
+        "internal_route_response",
+        "processing_time_ms",
+    )
+    date_hierarchy = "created_at"
+    ordering = ("-created_at",)
+
+    def has_add_permission(self, request):
+        # Não permitir criação manual (apenas via webhook)
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        # Somente leitura
         return False

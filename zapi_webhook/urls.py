@@ -1,6 +1,7 @@
 from django.urls import path
 from .views import (
     zapi_on_message_received,
+    delivery_webhook_callback,
     healthz,
     dashboard,
     index,
@@ -22,6 +23,11 @@ urlpatterns = [
         "webhooks/zapi/on-message-received/<str:url_token>/",
         zapi_on_message_received,
         name="zapi-on-message-received",
+    ),
+    path(
+        "webhooks/delivery-callback/<str:url_token>/",
+        delivery_webhook_callback,
+        name="delivery-webhook-callback",
     ),
     path("healthz", healthz, name="healthz"),
 ]

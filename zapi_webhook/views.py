@@ -4,7 +4,7 @@ import re
 from typing import Optional
 from django_ratelimit.decorators import ratelimit
 import time
-from .models import ApiToken, ApiRequestLog
+from .models import ApiToken, ApiRequestLog, DeliveryWebhookLog
 
 from django.conf import settings
 from django.http import HttpRequest, JsonResponse, HttpResponse
@@ -75,6 +75,29 @@ def _cleanup_old_api_requests():
             )
     except Exception as e:
         logger.error(f"Erro durante limpeza automática de logs da API: {e}")
+
+
+def _cleanup_old_delivery_logs():
+    """
+    Remove logs de delivery antigos baseado em DELIVERY_WEBHOOK_LOG_RETENTION_DAYS.
+    Chamada automaticamente no webhook de delivery.
+    Padrão idêntico ao _cleanup_old_messages().
+    """
+    try:
+        retention_days = getattr(settings, "DELIVERY_WEBHOOK_LOG_RETENTION_DAYS", 7)
+        cutoff_date = timezone.now() - timedelta(days=retention_days)
+        deleted_count, _ = DeliveryWebhookLog.objects.filter(
+            created_at__lt=cutoff_date
+        ).delete()
+        if deleted_count > 0:
+            logger.info(
+                f"Limpeza automática: {deleted_count} logs de delivery removidos "
+                f"(mais de {retention_days} dias)"
+            )
+        return deleted_count
+    except Exception as e:
+        logger.error(f"Erro durante limpeza automática de logs de delivery: {e}")
+        return 0
 
 
 def try_urls_with_cache(
@@ -221,6 +244,15 @@ def _url_token_is_valid(url_token: str) -> bool:
     return bool(expected) and url_token == expected
 
 
+def _delivery_token_is_valid(url_token: str) -> bool:
+    """
+    Valida token do webhook de delivery.
+    Padrão idêntico ao _url_token_is_valid() existente.
+    """
+    expected = getattr(settings, "DELIVERY_WEBHOOK_TOKEN", "")
+    return bool(expected) and url_token == expected
+
+
 @csrf_exempt
 @require_http_methods(["POST"])
 # @ratelimit(key='ip', rate='100/m', method='POST', block=True)  # Temporariamente desabilitado
@@ -334,6 +366,173 @@ def healthz(request: HttpRequest) -> HttpResponse:
     return JsonResponse({"status": "ok"}, status=200)
 
 
+@csrf_exempt
+@require_http_methods(["POST"])
+def delivery_webhook_callback(request: HttpRequest, url_token: str) -> HttpResponse:
+    """
+    Webhook para receber callbacks de entrega do sistema externo.
+    Recebe: {"id": "message_id", "mensagem": "retorno da empresa"}
+    Encaminha para rota interna via POST com {"retorno_envio": "mensagem"}
+    """
+    start_time = time.time()
+
+    # Executar limpeza automática
+    _cleanup_old_delivery_logs()
+
+    # 1. Validar token
+    if not _delivery_token_is_valid(url_token):
+        logger.warning("Invalid URL token for delivery webhook")
+        return JsonResponse({"detail": "Invalid token"}, status=401)
+
+    # 2. Validar Content-Type
+    content_type = request.META.get("CONTENT_TYPE", "")
+    if "application/json" not in content_type:
+        return JsonResponse({"detail": "Unsupported Media Type"}, status=415)
+
+    # 3. Parsear JSON
+    try:
+        body_bytes = request.body or b""
+        payload = json.loads(body_bytes.decode("utf-8") or "{}")
+    except json.JSONDecodeError:
+        # Registrar log de payload inválido
+        try:
+            ip_address = request.META.get("REMOTE_ADDR", "unknown")
+            DeliveryWebhookLog.objects.create(
+                message_id="invalid",
+                delivery_message="",
+                raw_payload={},
+                ip_address=ip_address,
+                webhook_status="invalid_payload",
+                internal_route_response="Invalid JSON",
+                processing_time_ms=int((time.time() - start_time) * 1000),
+            )
+        except Exception as e:
+            logger.error(f"Erro ao registrar log de payload inválido: {e}")
+        return JsonResponse({"detail": "Invalid JSON"}, status=400)
+
+    # 4. Extrair campos obrigatórios
+    message_id = payload.get("id", "")
+    delivery_message = payload.get("mensagem", "")
+
+    if not message_id:
+        # Registrar log de campo faltando
+        try:
+            ip_address = request.META.get("REMOTE_ADDR", "unknown")
+            DeliveryWebhookLog.objects.create(
+                message_id="missing",
+                delivery_message=delivery_message,
+                raw_payload=payload,
+                ip_address=ip_address,
+                webhook_status="invalid_payload",
+                internal_route_response="Missing required field: id",
+                processing_time_ms=int((time.time() - start_time) * 1000),
+            )
+        except Exception as e:
+            logger.error(f"Erro ao registrar log de campo faltando: {e}")
+        return JsonResponse({"detail": "Missing required field: id"}, status=400)
+
+    # 5. Encaminhar para rota interna
+    ip_address = request.META.get("REMOTE_ADDR", "unknown")
+    internal_system_url = getattr(
+        settings, "INTERNAL_SYSTEM_URL", "http://127.0.0.1:8000"
+    )
+    timeout = getattr(settings, "INTERNAL_FORWARD_TIMEOUT", 10)
+
+    internal_url = f"{internal_system_url}/atualizaretornomensagemporid/"
+    forward_payload = {"id_mensagem": message_id, "retorno_envio": delivery_message}
+
+    try:
+        response = requests.post(
+            internal_url,
+            json=forward_payload,
+            timeout=timeout,
+            headers={"Content-Type": "application/json"},
+        )
+
+        # 6. Processar resposta
+        if response.status_code == 404:
+            # ID não encontrado
+            DeliveryWebhookLog.objects.create(
+                message_id=message_id,
+                delivery_message=delivery_message,
+                raw_payload=payload,
+                ip_address=ip_address,
+                webhook_status="not_found",
+                internal_route_status_code=404,
+                internal_route_response=response.text[:500],
+                processing_time_ms=int((time.time() - start_time) * 1000),
+            )
+            logger.warning(f"Message ID not found in internal system: {message_id}")
+            return JsonResponse({"detail": "Message ID not found"}, status=404)
+
+        elif 200 <= response.status_code < 400:
+            # Sucesso
+            DeliveryWebhookLog.objects.create(
+                message_id=message_id,
+                delivery_message=delivery_message,
+                raw_payload=payload,
+                ip_address=ip_address,
+                webhook_status="success",
+                internal_route_status_code=response.status_code,
+                internal_route_response=response.text[:500],
+                processing_time_ms=int((time.time() - start_time) * 1000),
+            )
+            logger.info(f"Delivery callback processed successfully: {message_id}")
+            return JsonResponse({"status": "ok", "message_id": message_id}, status=200)
+
+        else:
+            # Erro HTTP
+            DeliveryWebhookLog.objects.create(
+                message_id=message_id,
+                delivery_message=delivery_message,
+                raw_payload=payload,
+                ip_address=ip_address,
+                webhook_status="forward_error",
+                internal_route_status_code=response.status_code,
+                internal_route_response=response.text[:500],
+                processing_time_ms=int((time.time() - start_time) * 1000),
+            )
+            logger.error(
+                f"Internal route returned error {response.status_code} for message {message_id}"
+            )
+            return JsonResponse(
+                {"detail": "Error forwarding to internal system"}, status=502
+            )
+
+    except requests.exceptions.RequestException as e:
+        # Erro de rede/timeout
+        DeliveryWebhookLog.objects.create(
+            message_id=message_id,
+            delivery_message=delivery_message,
+            raw_payload=payload,
+            ip_address=ip_address,
+            webhook_status="forward_error",
+            internal_route_response=f"Network error: {str(e)[:500]}",
+            processing_time_ms=int((time.time() - start_time) * 1000),
+        )
+        logger.error(f"Network error forwarding to internal system: {e}")
+        return JsonResponse(
+            {"detail": "Error forwarding to internal system"}, status=502
+        )
+
+    except Exception as e:
+        # Erro inesperado
+        logger.error(f"Unexpected error in delivery webhook: {e}")
+        try:
+            DeliveryWebhookLog.objects.create(
+                message_id=message_id,
+                delivery_message=delivery_message,
+                raw_payload=payload,
+                ip_address=ip_address,
+                webhook_status="forward_error",
+                internal_route_response=f"Unexpected error: {str(e)[:500]}",
+                processing_time_ms=int((time.time() - start_time) * 1000),
+            )
+        except Exception:
+            pass
+        return JsonResponse({"detail": "Internal server error"}, status=500)
+
+
 @login_required
 def dashboard(request):
     # Determinar qual aba está ativa
@@ -421,6 +620,78 @@ def dashboard(request):
             "end_date": end_date,
             "is_group": is_group,
             "broadcast": broadcast,
+            "is_paginated": page_obj.has_other_pages(),
+            "page_obj": page_obj,
+        }
+    elif active_tab == "delivery":
+        # Lógica para DeliveryWebhookLog
+        message_id = request.GET.get("message_id", "")
+        webhook_status = request.GET.get("webhook_status", "")
+        start_date_str = request.GET.get("start_date")
+        end_date_str = request.GET.get("end_date")
+
+        delivery_logs = DeliveryWebhookLog.objects.all()
+
+        # Filtro padrão: apenas se nenhum outro filtro for fornecido
+        if not any([message_id, webhook_status, start_date_str, end_date_str]):
+            today = timezone.now().date()
+            delivery_logs = delivery_logs.filter(created_at__date=today)
+            start_date = today.strftime("%Y-%m-%d")
+            end_date = today.strftime("%Y-%m-%d")
+        else:
+            start_date = start_date_str or ""
+            end_date = end_date_str or ""
+
+        if message_id:
+            delivery_logs = delivery_logs.filter(message_id__icontains=message_id)
+        if webhook_status:
+            delivery_logs = delivery_logs.filter(webhook_status=webhook_status)
+        if start_date:
+            delivery_logs = delivery_logs.filter(created_at__date__gte=start_date)
+        if end_date:
+            delivery_logs = delivery_logs.filter(created_at__date__lte=end_date)
+
+        # Estatísticas Delivery (baseadas nos filtros)
+        total_callbacks = delivery_logs.count()
+        success_callbacks = delivery_logs.filter(webhook_status="success").count()
+        not_found_callbacks = delivery_logs.filter(webhook_status="not_found").count()
+        forward_error_callbacks = delivery_logs.filter(
+            webhook_status="forward_error"
+        ).count()
+        invalid_payload_callbacks = delivery_logs.filter(
+            webhook_status="invalid_payload"
+        ).count()
+        last_callback = delivery_logs.order_by("-created_at").first()
+        last_callback_time = (
+            last_callback.created_at.strftime("%d/%m/%Y %H:%M:%S")
+            if last_callback
+            else "-"
+        )
+        avg_time = delivery_logs.filter(processing_time_ms__isnull=False).aggregate(
+            models.Avg("processing_time_ms")
+        )["processing_time_ms__avg"]
+        avg_time_formatted = f"{int(avg_time)} ms" if avg_time else "-"
+
+        paginator = Paginator(delivery_logs.order_by("-created_at"), 20)
+        page_number = request.GET.get("page")
+        page_obj = paginator.get_page(page_number)
+
+        context = {
+            "active_tab": "delivery",
+            "stats": {
+                "total_callbacks": total_callbacks,
+                "success_callbacks": success_callbacks,
+                "not_found_callbacks": not_found_callbacks,
+                "forward_error_callbacks": forward_error_callbacks,
+                "invalid_payload_callbacks": invalid_payload_callbacks,
+                "last_callback": last_callback_time,
+                "avg_time": avg_time_formatted,
+            },
+            "delivery_logs": page_obj,
+            "message_id": message_id,
+            "webhook_status": webhook_status,
+            "start_date": start_date,
+            "end_date": end_date,
             "is_paginated": page_obj.has_other_pages(),
             "page_obj": page_obj,
         }

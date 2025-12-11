@@ -152,3 +152,57 @@ class ApiRequestLog(models.Model):
 
     def __str__(self):
         return f"{self.created_at} | {self.ip_address} | Carga: {self.carga_number} | {self.request_status}"
+
+
+class DeliveryWebhookLog(models.Model):
+    """
+    Log de callbacks recebidos do webhook de retorno de entrega.
+    Registra TODAS as tentativas (válidas e inválidas) para auditoria.
+    """
+
+    WEBHOOK_STATUS_CHOICES = [
+        ("success", "Sucesso - Encaminhado"),
+        ("not_found", "ID não encontrado (404)"),
+        ("forward_error", "Erro ao encaminhar"),
+        ("invalid_payload", "Payload inválido"),
+    ]
+
+    # Dados do callback recebido
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    message_id = models.CharField(
+        max_length=255, db_index=True, help_text="ID recebido da empresa"
+    )
+    delivery_message = models.TextField(
+        blank=True, help_text="Mensagem de retorno da empresa"
+    )
+    raw_payload = models.JSONField(help_text="Payload JSON completo recebido")
+    ip_address = models.GenericIPAddressField(help_text="IP da empresa externa")
+
+    # Status do processamento interno
+    webhook_status = models.CharField(
+        max_length=50,
+        choices=WEBHOOK_STATUS_CHOICES,
+        db_index=True,
+        help_text="Status do processamento do webhook",
+    )
+
+    # Resposta da rota interna
+    internal_route_status_code = models.IntegerField(
+        null=True, blank=True, help_text="Código HTTP da rota interna"
+    )
+    internal_route_response = models.TextField(
+        blank=True, help_text="Resposta da rota interna"
+    )
+
+    # Tempo de processamento
+    processing_time_ms = models.IntegerField(
+        null=True, blank=True, help_text="Tempo de processamento em milissegundos"
+    )
+
+    class Meta:
+        ordering = ["-created_at"]
+        verbose_name = "Log de Webhook de Entrega"
+        verbose_name_plural = "Logs de Webhook de Entrega"
+
+    def __str__(self):
+        return f"{self.created_at} | {self.message_id} | {self.webhook_status}"

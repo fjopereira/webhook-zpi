@@ -36,13 +36,18 @@ staticfiles/
 .vscode/
 *.code-workspace
 
-# Arquivos de IA
+# Arquivos de IA (específicos, não bloqueia README.md e CLAUDE.md)
 @*
-*.md
+
+# Claude Code
+.claude/
 
 # Sistema
 .DS_Store
 Thumbs.db
+nul
 
-# Imagens
+# Arquivos de teste temporários
+test_delivery.py
+test_delivery.ps1
 *.png
