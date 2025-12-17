@@ -370,9 +370,26 @@ def healthz(request: HttpRequest) -> HttpResponse:
 @require_http_methods(["POST"])
 def delivery_webhook_callback(request: HttpRequest, url_token: str) -> HttpResponse:
     """
-    Webhook para receber callbacks de entrega do sistema externo.
-    Recebe: {"id": "message_id", "mensagem": "retorno da empresa"}
-    Encaminha para rota interna via POST com {"retorno_envio": "mensagem"}
+    Webhook para receber callbacks de entrega do Meta/WhatsApp via Z-API.
+
+    Formato esperado:
+    {
+        "account": {"id": "..."},
+        "bot": {"id": "..."},
+        "statuses": [
+            {
+                "message": {
+                    "id": "...",
+                    "message_key": "db539ae2-f44c-434f-a5ce-005d126f4774",
+                    "status": "sent|delivered|read|undelivered",
+                    "timestamp": "1755189463",
+                    "platform_data": {...}
+                }
+            }
+        ]
+    }
+
+    Encaminha para rota interna via POST com {"id_mensagem": "message_key", "retorno_envio": "status"}
     """
     start_time = time.time()
 
@@ -410,127 +427,171 @@ def delivery_webhook_callback(request: HttpRequest, url_token: str) -> HttpRespo
             logger.error(f"Erro ao registrar log de payload inválido: {e}")
         return JsonResponse({"detail": "Invalid JSON"}, status=400)
 
-    # 4. Extrair campos obrigatórios
-    message_id = payload.get("id", "")
-    delivery_message = payload.get("mensagem", "")
+    # 4. Extrair array de statuses
+    statuses = payload.get("statuses", [])
 
-    if not message_id:
-        # Registrar log de campo faltando
+    if not isinstance(statuses, list) or len(statuses) == 0:
+        # Registrar log de estrutura inválida
         try:
             ip_address = request.META.get("REMOTE_ADDR", "unknown")
             DeliveryWebhookLog.objects.create(
                 message_id="missing",
-                delivery_message=delivery_message,
+                delivery_message="",
                 raw_payload=payload,
                 ip_address=ip_address,
                 webhook_status="invalid_payload",
-                internal_route_response="Missing required field: id",
+                internal_route_response="Missing or invalid 'statuses' array",
                 processing_time_ms=int((time.time() - start_time) * 1000),
             )
         except Exception as e:
-            logger.error(f"Erro ao registrar log de campo faltando: {e}")
-        return JsonResponse({"detail": "Missing required field: id"}, status=400)
+            logger.error(f"Erro ao registrar log de estrutura inválida: {e}")
+        return JsonResponse(
+            {"detail": "Missing or invalid 'statuses' array"}, status=400
+        )
 
-    # 5. Encaminhar para rota interna
+    # 5. Processar cada status recebido
     ip_address = request.META.get("REMOTE_ADDR", "unknown")
     internal_system_url = getattr(
         settings, "INTERNAL_SYSTEM_URL", "http://127.0.0.1:8000"
     )
     timeout = getattr(settings, "INTERNAL_FORWARD_TIMEOUT", 10)
 
-    internal_url = f"{internal_system_url}/atualizaretornomensagemporid/"
-    forward_payload = {"id_mensagem": message_id, "retorno_envio": delivery_message}
+    processed_count = 0
+    failed_count = 0
+    results = []
 
-    try:
-        response = requests.post(
-            internal_url,
-            json=forward_payload,
-            timeout=timeout,
-            headers={"Content-Type": "application/json"},
-        )
+    for status_item in statuses:
+        # Extrair dados do status
+        message_data = status_item.get("message", {})
+        message_key = message_data.get("message_key", "")
+        delivery_status = message_data.get("status", "")
 
-        # 6. Processar resposta
-        if response.status_code == 404:
-            # ID não encontrado
-            DeliveryWebhookLog.objects.create(
-                message_id=message_id,
-                delivery_message=delivery_message,
-                raw_payload=payload,
-                ip_address=ip_address,
-                webhook_status="not_found",
-                internal_route_status_code=404,
-                internal_route_response=response.text[:500],
-                processing_time_ms=int((time.time() - start_time) * 1000),
-            )
-            logger.warning(f"Message ID not found in internal system: {message_id}")
-            return JsonResponse({"detail": "Message ID not found"}, status=404)
+        if not message_key:
+            logger.warning("Status sem message_key encontrado no payload")
+            failed_count += 1
+            continue
 
-        elif 200 <= response.status_code < 400:
-            # Sucesso
-            DeliveryWebhookLog.objects.create(
-                message_id=message_id,
-                delivery_message=delivery_message,
-                raw_payload=payload,
-                ip_address=ip_address,
-                webhook_status="success",
-                internal_route_status_code=response.status_code,
-                internal_route_response=response.text[:500],
-                processing_time_ms=int((time.time() - start_time) * 1000),
-            )
-            logger.info(f"Delivery callback processed successfully: {message_id}")
-            return JsonResponse({"status": "ok", "message_id": message_id}, status=200)
+        if not delivery_status:
+            logger.warning(f"Status sem campo 'status' para message_key: {message_key}")
+            failed_count += 1
+            continue
 
-        else:
-            # Erro HTTP
-            DeliveryWebhookLog.objects.create(
-                message_id=message_id,
-                delivery_message=delivery_message,
-                raw_payload=payload,
-                ip_address=ip_address,
-                webhook_status="forward_error",
-                internal_route_status_code=response.status_code,
-                internal_route_response=response.text[:500],
-                processing_time_ms=int((time.time() - start_time) * 1000),
-            )
-            logger.error(
-                f"Internal route returned error {response.status_code} for message {message_id}"
-            )
-            return JsonResponse(
-                {"detail": "Error forwarding to internal system"}, status=502
-            )
+        # Encaminhar para rota interna
+        internal_url = f"{internal_system_url}/atualizaretornomensagemporid/"
+        forward_payload = {"id_mensagem": message_key, "retorno_envio": delivery_status}
 
-    except requests.exceptions.RequestException as e:
-        # Erro de rede/timeout
-        DeliveryWebhookLog.objects.create(
-            message_id=message_id,
-            delivery_message=delivery_message,
-            raw_payload=payload,
-            ip_address=ip_address,
-            webhook_status="forward_error",
-            internal_route_response=f"Network error: {str(e)[:500]}",
-            processing_time_ms=int((time.time() - start_time) * 1000),
-        )
-        logger.error(f"Network error forwarding to internal system: {e}")
-        return JsonResponse(
-            {"detail": "Error forwarding to internal system"}, status=502
-        )
-
-    except Exception as e:
-        # Erro inesperado
-        logger.error(f"Unexpected error in delivery webhook: {e}")
         try:
+            response = requests.post(
+                internal_url,
+                json=forward_payload,
+                timeout=timeout,
+                headers={"Content-Type": "application/json"},
+            )
+
+            # Processar resposta
+            if response.status_code == 404:
+                # ID não encontrado
+                DeliveryWebhookLog.objects.create(
+                    message_id=message_key,
+                    delivery_message=delivery_status,
+                    raw_payload=payload,
+                    ip_address=ip_address,
+                    webhook_status="not_found",
+                    internal_route_status_code=404,
+                    internal_route_response=response.text[:500],
+                    processing_time_ms=int((time.time() - start_time) * 1000),
+                )
+                logger.warning(
+                    f"Message ID not found in internal system: {message_key}"
+                )
+                results.append({"message_key": message_key, "status": "not_found"})
+                failed_count += 1
+
+            elif 200 <= response.status_code < 400:
+                # Sucesso
+                DeliveryWebhookLog.objects.create(
+                    message_id=message_key,
+                    delivery_message=delivery_status,
+                    raw_payload=payload,
+                    ip_address=ip_address,
+                    webhook_status="success",
+                    internal_route_status_code=response.status_code,
+                    internal_route_response=response.text[:500],
+                    processing_time_ms=int((time.time() - start_time) * 1000),
+                )
+                logger.info(
+                    f"Delivery callback processed successfully: {message_key} - Status: {delivery_status}"
+                )
+                results.append({"message_key": message_key, "status": "ok"})
+                processed_count += 1
+
+            else:
+                # Erro HTTP
+                DeliveryWebhookLog.objects.create(
+                    message_id=message_key,
+                    delivery_message=delivery_status,
+                    raw_payload=payload,
+                    ip_address=ip_address,
+                    webhook_status="forward_error",
+                    internal_route_status_code=response.status_code,
+                    internal_route_response=response.text[:500],
+                    processing_time_ms=int((time.time() - start_time) * 1000),
+                )
+                logger.error(
+                    f"Internal route returned error {response.status_code} for message {message_key}"
+                )
+                results.append({"message_key": message_key, "status": "forward_error"})
+                failed_count += 1
+
+        except requests.exceptions.RequestException as e:
+            # Erro de rede/timeout
             DeliveryWebhookLog.objects.create(
-                message_id=message_id,
-                delivery_message=delivery_message,
+                message_id=message_key,
+                delivery_message=delivery_status,
                 raw_payload=payload,
                 ip_address=ip_address,
                 webhook_status="forward_error",
-                internal_route_response=f"Unexpected error: {str(e)[:500]}",
+                internal_route_response=f"Network error: {str(e)[:500]}",
                 processing_time_ms=int((time.time() - start_time) * 1000),
             )
-        except Exception:
-            pass
-        return JsonResponse({"detail": "Internal server error"}, status=500)
+            logger.error(f"Network error forwarding to internal system: {e}")
+            results.append({"message_key": message_key, "status": "network_error"})
+            failed_count += 1
+
+        except Exception as e:
+            # Erro inesperado
+            logger.error(f"Unexpected error processing status for {message_key}: {e}")
+            try:
+                DeliveryWebhookLog.objects.create(
+                    message_id=message_key,
+                    delivery_message=delivery_status,
+                    raw_payload=payload,
+                    ip_address=ip_address,
+                    webhook_status="forward_error",
+                    internal_route_response=f"Unexpected error: {str(e)[:500]}",
+                    processing_time_ms=int((time.time() - start_time) * 1000),
+                )
+            except Exception:
+                pass
+            results.append({"message_key": message_key, "status": "error"})
+            failed_count += 1
+
+    # 6. Retornar resposta final
+    total_statuses = len(statuses)
+    response_data = {
+        "status": "ok",
+        "processed": processed_count,
+        "failed": failed_count,
+        "total": total_statuses,
+        "results": results,
+    }
+
+    logger.info(
+        f"Delivery webhook completed: {processed_count}/{total_statuses} processed, "
+        f"{failed_count} failed - Time: {int((time.time() - start_time) * 1000)}ms"
+    )
+
+    return JsonResponse(response_data, status=200)
 
 
 @login_required

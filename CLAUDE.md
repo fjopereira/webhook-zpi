@@ -222,21 +222,63 @@ curl -X GET "https://dominio.com/api/consulta-carga/12345/" \
 ```
 
 **Webhook de Retorno de Entrega:**
-- Endpoint para receber callbacks da empresa externa sobre status de entrega
+- Endpoint para receber callbacks do Meta/WhatsApp (via Z-API) sobre status de entrega
 - Autenticação via token de URL (DELIVERY_WEBHOOK_TOKEN)
-- Payload recebido: `{"id": "message_id", "mensagem": "status da entrega"}`
-- Encaminhamento automático para sistema interno via POST
+- Formato do payload (Meta/WhatsApp):
+  ```json
+  {
+    "account": {"id": "xxxxxxxxxxx"},
+    "bot": {"id": "xxxxxxxxxxxxxxx"},
+    "statuses": [
+      {
+        "message": {
+          "id": "689e10d582c55b6600178cdb",
+          "message_key": "db539ae2-f44c-434f-a5ce-005d126f4774",
+          "status": "sent|delivered|read|undelivered",
+          "timestamp": "1755189463",
+          "platform_data": {...}
+        }
+      }
+    ]
+  }
+  ```
+- Status possíveis: `sent`, `delivered`, `read`, `undelivered`
+  - `sent` - Mensagem enviada
+  - `delivered` - Mensagem entregue
+  - `read` - Mensagem lida (apenas se usuário tiver confirmação de leitura ativa)
+  - `undelivered` - Mensagem não entregue
+- Sequência típica de status:
+  - Com confirmação de leitura: `sent` → `delivered` → `read`
+  - Sem confirmação de leitura: `sent` → `delivered`
+  - Falha na entrega: `sent` → `undelivered`
+- Processamento em lote: processa múltiplos status do array `statuses[]`
+- Encaminhamento automático para sistema interno via POST (um por status)
 - Logging completo em `DeliveryWebhookLog` (IP, payload, tempo, status)
 - Dashboard possui aba dedicada para visualizar logs de delivery
-- Suporta múltiplos status: success, not_found, forward_error, invalid_payload
 
-**Exemplo de requisição (empresa externa):**
+**Exemplo de requisição (Meta/WhatsApp via Z-API):**
 ```bash
 curl -X POST "https://dominio.com/webhooks/delivery-callback/seu-token-aqui/" \
   -H "Content-Type: application/json" \
   -d '{
-    "id": "3EB0123456789ABC",
-    "mensagem": "Entregue com sucesso"
+    "account": {"id": "xxxxxxxxxxx"},
+    "bot": {"id": "xxxxxxxxxxxxxxx"},
+    "statuses": [
+      {
+        "message": {
+          "id": "689e10d582c55b6600178cdb",
+          "message_key": "db539ae2-f44c-434f-a5ce-005d126f4774",
+          "status": "delivered",
+          "timestamp": "1755189463",
+          "platform_data": {
+            "id": "wamid.HBgMNTUzMTkzMDE4MjI1FQIAERgSMDQxMEFGQUIwRUFEMTAyNzMxAA==",
+            "status": "delivered",
+            "timestamp": "1755189463",
+            "recipient_id": "xxxxxxxx"
+          }
+        }
+      }
+    ]
   }'
 ```
 
@@ -244,22 +286,29 @@ curl -X POST "https://dominio.com/webhooks/delivery-callback/seu-token-aqui/" \
 ```json
 {
   "status": "ok",
-  "message_id": "3EB0123456789ABC"
+  "processed": 1,
+  "failed": 0,
+  "total": 1,
+  "results": [
+    {
+      "message_key": "db539ae2-f44c-434f-a5ce-005d126f4774",
+      "status": "ok"
+    }
+  ]
 }
 ```
 
 **Respostas de erro:**
 - `401` - Token inválido: `{"detail": "Invalid token"}`
 - `400` - JSON inválido: `{"detail": "Invalid JSON"}`
-- `400` - Campo faltando: `{"detail": "Missing required field: id"}`
-- `404` - ID não encontrado: `{"detail": "Message ID not found"}`
-- `502` - Erro ao encaminhar: `{"detail": "Error forwarding to internal system"}`
+- `400` - Array statuses faltando/inválido: `{"detail": "Missing or invalid 'statuses' array"}`
 
-**Encaminhamento automático:**
-- URL: `{INTERNAL_SYSTEM_URL}/atualizaretornomensagemporid/{id}/`
+**Encaminhamento automático (por cada status):**
+- URL: `{INTERNAL_SYSTEM_URL}/atualizaretornomensagemporid/`
 - Método: POST
-- Payload: `{"retorno_envio": "mensagem recebida"}`
+- Payload: `{"id_mensagem": "message_key", "retorno_envio": "status"}`
 - Timeout configurável via `INTERNAL_FORWARD_TIMEOUT`
+- Status possíveis no encaminhamento: success, not_found, forward_error
 
 ### Testing Considerations
 
